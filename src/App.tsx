@@ -1,9 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Key, Download, Coins } from 'lucide-react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
+import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Download, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
+import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
 import { fileToBase64 } from './lib/utils';
-import { launchTool, verifyIntegral, consumeIntegral, UserInfo } from './services/saasService';
+
+const SaasContext = createContext<{
+  userId: string;
+  toolId: string;
+  integral: number;
+  setIntegral: (val: number) => void;
+  refreshIntegral: (uid: string, tid: string) => Promise<void>;
+}>({
+  userId: '',
+  toolId: '',
+  integral: 0,
+  setIntegral: () => {},
+  refreshIntegral: async () => {},
+});
 
 const STYLES = ['猫眼', '法式', '渐变', '纯色', '装饰', '手绘'];
 
@@ -44,142 +58,74 @@ declare global {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'smart' | 'custom'>('smart');
-  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [toolId, setToolId] = useState<string>('');
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [saasContext, setSaasContext] = useState<string>('');
-  const [saasPrompt, setSaasPrompt] = useState<string[]>([]);
+  const [integral, setIntegral] = useState<number>(0);
 
-  const fetchBalance = useCallback(async (uid: string, tid: string) => {
+  const refreshIntegral = async (uid: string, tid: string) => {
+    if (!uid || !tid || uid === 'null' || tid === 'null') return;
     try {
-      const res = await launchTool(uid, tid);
-      if (res.success && res.data) {
-        setUserInfo(res.data.user);
+      const res = await saasLaunch(uid, tid);
+      if (res.success) {
+        setIntegral(res.data.user.integral);
       }
     } catch (e) {
       console.error('Launch failed', e);
     }
-  }, []);
+  };
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SAAS_INIT') {
-        const { userId: uid, toolId: tid, context, prompt } = event.data;
-        
-        // Filter "null" or "undefined" strings as per spec
-        const cleanStr = (s: any) => (s === "null" || s === "undefined") ? "" : (s || "");
-        
-        if (uid && tid) {
-          setUserId(cleanStr(uid));
-          setToolId(cleanStr(tid));
-          setSaasContext(cleanStr(context));
-          setSaasPrompt(Array.isArray(prompt) ? prompt.filter(p => p !== "null" && p !== "undefined") : []);
-          fetchBalance(uid, tid);
+        const { userId: uid, toolId: tid } = event.data;
+        if (uid && tid && uid !== 'null' && tid !== 'null') {
+          setUserId(uid);
+          setToolId(tid);
+          refreshIntegral(uid, tid);
         }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [fetchBalance]);
-
-  useEffect(() => {
-    const checkApiKey = async () => {
-      if (window.aistudio?.hasSelectedApiKey) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
-      } else {
-        // Fallback if running outside AI Studio
-        setHasApiKey(true);
-      }
-    };
-    checkApiKey();
   }, []);
 
-  const handleSelectKey = async () => {
-    if (window.aistudio?.openSelectKey) {
-      await window.aistudio.openSelectKey();
-      setHasApiKey(true); // Assume success to mitigate race condition
-    }
-  };
-
-  if (hasApiKey === false) {
-    return (
-      <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-neutral-200 max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 bg-pink-50 text-pink-600 rounded-full flex items-center justify-center mx-auto">
-            <Key size={32} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold mb-2">需要 API Key</h1>
-            <p className="text-neutral-500 text-sm">
-              当前使用的高级生图模型 (Gemini 3.1 Flash Image) 需要您提供自己的 Google Cloud API Key。
-              <br /><br />
-              请点击下方按钮选择或配置您的 API Key。请确保您的项目已启用计费。
-            </p>
-          </div>
-          <button
-            onClick={handleSelectKey}
-            className="w-full py-3 bg-neutral-900 text-white rounded-xl font-medium hover:bg-neutral-800 transition-colors"
-          >
-            选择 API Key
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (hasApiKey === null) {
-    return <div className="min-h-screen bg-neutral-50 flex items-center justify-center"><Loader2 className="animate-spin text-neutral-400" size={32} /></div>;
-  }
-
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans">
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+    <SaasContext.Provider value={{ userId, toolId, integral, setIntegral, refreshIntegral }}>
+      <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans">
+        <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
+          <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center text-white">
                 <Sparkles size={18} />
               </div>
               <h1 className="text-xl font-semibold tracking-tight">NailAI 美甲工作室</h1>
             </div>
-            
-            {userInfo && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-100 text-sm font-medium">
-                <Coins size={14} className="text-amber-500" />
-                <span>积分: {userInfo.integral}</span>
-              </div>
-            )}
-          </div>
-          <nav className="flex gap-1 bg-neutral-100 p-1 rounded-lg">
-            <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
-            <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义款式" />
-          </nav>
-        </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className={activeTab === 'smart' ? 'block' : 'hidden'}>
-          <SmartRecTab 
-            userId={userId} 
-            toolId={toolId} 
-            saasContext={saasContext}
-            saasPrompt={saasPrompt}
-            onRefreshBalance={() => fetchBalance(userId, toolId)} 
-          />
-        </div>
-        <div className={activeTab === 'custom' ? 'block' : 'hidden'}>
-          <CustomTab 
-            userId={userId} 
-            toolId={toolId} 
-            saasContext={saasContext}
-            saasPrompt={saasPrompt}
-            onRefreshBalance={() => fetchBalance(userId, toolId)} 
-          />
-        </div>
-      </main>
-    </div>
+            <div className="flex items-center gap-4">
+              {userId && (
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-100 text-sm font-medium">
+                  <Coins size={14} className="text-yellow-500" />
+                  <span>积分余额: {integral}</span>
+                </div>
+              )}
+              <nav className="flex gap-1 bg-neutral-100 p-1 rounded-lg">
+                <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
+                <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义款式" />
+              </nav>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-5xl mx-auto px-4 py-8">
+          <div className={activeTab === 'smart' ? 'block' : 'hidden'}>
+            <SmartRecTab />
+          </div>
+          <div className={activeTab === 'custom' ? 'block' : 'hidden'}>
+            <CustomTab />
+          </div>
+        </main>
+      </div>
+    </SaasContext.Provider>
   );
 }
 
@@ -227,19 +173,8 @@ function ImageUpload({ image, onUpload, label }: { image: string | null; onUploa
   );
 }
 
-function SmartRecTab({ 
-  userId, 
-  toolId, 
-  saasContext, 
-  saasPrompt, 
-  onRefreshBalance 
-}: { 
-  userId: string; 
-  toolId: string; 
-  saasContext: string; 
-  saasPrompt: string[]; 
-  onRefreshBalance: () => void 
-}) {
+function SmartRecTab() {
+  const saas = useContext(SaasContext);
   const [handImage, setHandImage] = useState<{ url: string; file: File } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -252,17 +187,13 @@ function SmartRecTab({
 
   const handleAnalyze = async () => {
     if (!handImage) return;
-    
-    // SaaS Verification
-    if (userId && toolId) {
-      try {
-        const verify = await verifyIntegral(userId, toolId);
-        if (!verify.success) {
-          alert(verify.message || "积分不足");
-          return;
-        }
-      } catch (err) {
-        console.error("Verify integral failed", err);
+
+    // Integral Verify
+    if (saas.userId && saas.toolId) {
+      const verify = await saasVerify(saas.userId, saas.toolId);
+      if (!verify.success) {
+        alert(verify.message || "积分不足");
+        return;
       }
     }
 
@@ -272,9 +203,17 @@ function SmartRecTab({
       const result = await analyzeHand(base64, mimeType);
       setAnalysis(result);
       setSelectedStyle(result.recommendedStyle);
-    } catch (error: any) {
+
+      // Integral Consume
+      if (saas.userId && saas.toolId) {
+        const consume = await saasConsume(saas.userId, saas.toolId);
+        if (consume.success) {
+          saas.setIntegral(consume.data.currentIntegral);
+        }
+      }
+    } catch (error) {
       console.error(error);
-      alert(error.message || "分析手部特征失败。");
+      alert("分析手部特征失败。");
     } finally {
       setIsAnalyzing(false);
     }
@@ -282,17 +221,13 @@ function SmartRecTab({
 
   const handleGenerate = async () => {
     if (!handImage || !selectedStyle) return;
-    
-    // SaaS Verification
-    if (userId && toolId) {
-      try {
-        const verify = await verifyIntegral(userId, toolId);
-        if (!verify.success) {
-          alert(verify.message || "积分不足");
-          return;
-        }
-      } catch (err) {
-        console.error("Verify integral failed", err);
+
+    // Integral Verify
+    if (saas.userId && saas.toolId) {
+      const verify = await saasVerify(saas.userId, saas.toolId);
+      if (!verify.success) {
+        alert(verify.message || "积分不足");
+        return;
       }
     }
 
@@ -300,31 +235,24 @@ function SmartRecTab({
     try {
       const { base64, mimeType } = await fileToBase64(handImage.file);
       const styleDescription = STYLE_PROMPTS[selectedStyle] || `Apply ${selectedStyle} style nails`;
-      
-      // 合成最终提示词: 内部预设风格 + SaaS 内容主体 + SaaS 补充关键词
-      const combinedSaaS = `${saasContext} ${saasPrompt.join(' ')}`.trim();
-      const finalInstructions = `${styleDescription}. ${combinedSaaS ? `Additional Requirements: ${combinedSaaS}.` : ''}`;
-      
-      const prompt = `Strictly generate the nails with the following exact specifications: ${finalInstructions}. The result MUST perfectly match this description.`;
+      const prompt = `Strictly generate the nails with the following exact specifications: ${styleDescription}. The result MUST perfectly match this description.`;
       const result = await generateNailTryOn(base64, mimeType, prompt);
       
-      // SaaS Consume
-      if (userId && toolId) {
-        try {
-          await consumeIntegral(userId, toolId);
-          onRefreshBalance();
-        } catch (err) {
-          console.error("Consume integral failed", err);
-        }
-      }
-
       if (resultImage) {
         setHistory(prev => [resultImage, ...prev]);
       }
       setResultImage(result);
-    } catch (error: any) {
+
+      // Integral Consume
+      if (saas.userId && saas.toolId) {
+        const consume = await saasConsume(saas.userId, saas.toolId);
+        if (consume.success) {
+          saas.setIntegral(consume.data.currentIntegral);
+        }
+      }
+    } catch (error) {
       console.error(error);
-      alert(error.message || "生成图片失败。");
+      alert("生成图片失败。");
     } finally {
       setIsGenerating(false);
     }
@@ -515,19 +443,8 @@ function SmartRecTab({
   );
 }
 
-function CustomTab({ 
-  userId, 
-  toolId, 
-  saasContext, 
-  saasPrompt, 
-  onRefreshBalance 
-}: { 
-  userId: string; 
-  toolId: string; 
-  saasContext: string; 
-  saasPrompt: string[]; 
-  onRefreshBalance: () => void 
-}) {
+function CustomTab() {
+  const saas = useContext(SaasContext);
   const [handImage, setHandImage] = useState<{ url: string; file: File } | null>(null);
   const [nailImage, setNailImage] = useState<{ url: string; file: File } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -538,16 +455,12 @@ function CustomTab({
   const handleGenerate = async () => {
     if (!handImage || !nailImage) return;
 
-    // SaaS Verification
-    if (userId && toolId) {
-      try {
-        const verify = await verifyIntegral(userId, toolId);
-        if (!verify.success) {
-          alert(verify.message || "积分不足");
-          return;
-        }
-      } catch (err) {
-        console.error("Verify integral failed", err);
+    // Integral Verify
+    if (saas.userId && saas.toolId) {
+      const verify = await saasVerify(saas.userId, saas.toolId);
+      if (!verify.success) {
+        alert(verify.message || "积分不足");
+        return;
       }
     }
 
@@ -558,30 +471,25 @@ function CustomTab({
       
       // 首先提取参考图的细节特征，用于强制锚定生图属性
       const analysis = await analyzeNailReference(refBase64, refMimeType);
-      
-      // 合成最终提示词: 内部预设风格(此处为图片特征) + SaaS 内容主体 + SaaS 补充关键词
-      const combinedSaaS = `${saasContext} ${saasPrompt.join(' ')}`.trim();
-      const detailedPrompt = `Nail Shape & Length: ${analysis.length}. Base Color: ${analysis.color}. Material/Texture: ${analysis.material}. 3D Decorations & Patterns: ${analysis.details}. ${combinedSaaS ? `Additional Requirements: ${combinedSaaS}.` : ''}`;
+      const detailedPrompt = `Nail Shape & Length: ${analysis.length}. Base Color: ${analysis.color}. Material/Texture: ${analysis.material}. 3D Decorations & Patterns: ${analysis.details}.`;
       
       const result = await generateNailTryOn(base64, mimeType, detailedPrompt, refBase64, refMimeType);
       
-      // SaaS Consume
-      if (userId && toolId) {
-        try {
-          await consumeIntegral(userId, toolId);
-          onRefreshBalance();
-        } catch (err) {
-          console.error("Consume integral failed", err);
-        }
-      }
-
       if (resultImage) {
         setHistory(prev => [resultImage, ...prev]);
       }
       setResultImage(result);
-    } catch (error: any) {
+
+      // Integral Consume
+      if (saas.userId && saas.toolId) {
+        const consume = await saasConsume(saas.userId, saas.toolId);
+        if (consume.success) {
+          saas.setIntegral(consume.data.currentIntegral);
+        }
+      }
+    } catch (error) {
       console.error(error);
-      alert(error.message || "生成图片失败。");
+      alert("生成图片失败。");
     } finally {
       setIsGenerating(false);
     }
