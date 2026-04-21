@@ -2,10 +2,11 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run locally
+# Run and deploy your AI Studio app
 
-This project uses an Express backend to call Gemini, and the backend reads the API key from `.env`.
-It also proxies the SaaS `launch / verify / consume` endpoints used for user info and integral checks.
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/e4710c80-1051-49e1-bde1-a50422d53c2d
 
 ## Run Locally
 
@@ -14,7 +15,6 @@ It also proxies the SaaS `launch / verify / consume` endpoints used for user inf
 
 1. Install dependencies:
    `npm install`
-2. Copy [.env.example](.env.example) to `.env`, then set `GEMINI_API_KEY`
-3. If needed, update `SAAS_API_BASE_URL` to your SaaS backend address
-4. Run the app:
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
    `npm run dev`

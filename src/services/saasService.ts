@@ -1,68 +1,64 @@
-export type InitPayload = {
-  userId: string;
-  toolId: string;
-  context?: string;
-  prompt?: string[] | string;
-  callbackUrl?: string;
-};
+export interface UserInfo {
+  name: string;
+  enterprise: string;
+  integral: number;
+}
 
-export type LaunchResponse = {
+export interface ToolInfo {
+  name: string;
+  integral: number;
+}
+
+export interface LaunchResponse {
   success: boolean;
   data?: {
-    user?: {
-      name?: string;
-      enterprise?: string;
-      integral?: number;
-    };
-    tool?: {
-      name?: string;
-      integral?: number;
-    };
+    user: UserInfo;
+    tool: ToolInfo;
   };
   message?: string;
-};
+}
 
-export type VerifyResponse = {
+export interface VerifyResponse {
   success: boolean;
   data?: {
-    currentIntegral?: number;
-    requiredIntegral?: number;
+    currentIntegral: number;
+    requiredIntegral: number;
   };
   message?: string;
-};
+}
 
-export type ConsumeResponse = {
+export interface ConsumeResponse {
   success: boolean;
   data?: {
-    currentIntegral?: number;
-    consumedIntegral?: number;
+    currentIntegral: number;
+    consumedIntegral: number;
   };
   message?: string;
-};
+}
 
-const postJson = async <T>(url: string, body: Record<string, unknown>): Promise<T> => {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+export const launchTool = async (userId: string, toolId: string): Promise<LaunchResponse> => {
+  const response = await fetch("/api/tool/launch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, toolId }),
   });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.message || '接口请求失败');
-  }
-
-  return data as T;
+  return response.json();
 };
 
-export const launchTool = async (userId: string, toolId: string) => {
-  return postJson<LaunchResponse>('/api/tool/launch', { userId, toolId });
+export const verifyIntegral = async (userId: string, toolId: string): Promise<VerifyResponse> => {
+  const response = await fetch("/api/tool/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, toolId }),
+  });
+  return response.json();
 };
 
-export const verifyIntegral = async (userId: string, toolId: string) => {
-  return postJson<VerifyResponse>('/api/tool/verify', { userId, toolId });
-};
-
-export const consumeIntegral = async (userId: string, toolId: string) => {
-  return postJson<ConsumeResponse>('/api/tool/consume', { userId, toolId });
+export const consumeIntegral = async (userId: string, toolId: string): Promise<ConsumeResponse> => {
+  const response = await fetch("/api/tool/consume", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, toolId }),
+  });
+  return response.json();
 };
