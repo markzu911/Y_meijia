@@ -1,5 +1,5 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Download, Coins } from 'lucide-react';
+import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Download, Coins, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
 import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
@@ -61,6 +61,17 @@ export default function App() {
   const [userId, setUserId] = useState<string>('');
   const [toolId, setToolId] = useState<string>('');
   const [integral, setIntegral] = useState<number>(0);
+  const [apiStatus, setApiStatus] = useState<{ connected: boolean; message: string } | null>(null);
+
+  const checkApiStatus = async () => {
+    try {
+      const res = await fetch('api/health-check');
+      const data = await res.json();
+      setApiStatus({ connected: data.connected, message: data.message });
+    } catch (e) {
+      setApiStatus({ connected: false, message: '无法连接到后端服务' });
+    }
+  };
 
   const refreshIntegral = async (uid: string, tid: string) => {
     if (!uid || !tid || uid === 'null' || tid === 'null') return;
@@ -75,6 +86,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    checkApiStatus();
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SAAS_INIT') {
         const { userId: uid, toolId: tid } = event.data;
@@ -92,22 +104,47 @@ export default function App() {
   return (
     <SaasContext.Provider value={{ userId, toolId, integral, setIntegral, refreshIntegral }}>
       <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans">
+        <AnimatePresence>
+          {apiStatus && !apiStatus.connected && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-red-500 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium sticky top-0 z-50 overflow-hidden"
+            >
+              <AlertCircle size={16} />
+              <span>{apiStatus.message}。核心功能将无法使用，请检查配置。</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center text-white">
                 <Sparkles size={18} />
               </div>
-              <h1 className="text-xl font-semibold tracking-tight">NailAI 美甲工作室</h1>
+              <div className="flex flex-col">
+                <h1 className="text-xl font-semibold tracking-tight">NailAI 美甲工作室</h1>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {apiStatus?.connected ? (
+                    <span className="flex items-center gap-1 text-[10px] text-green-500 font-medium uppercase tracking-wider">
+                      <Wifi size={10} /> SaaS 接口已通
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-[10px] text-red-500 font-medium uppercase tracking-wider">
+                      <WifiOff size={10} /> SaaS 接口失败
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center gap-4">
-              {userId && (
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-100 text-sm font-medium">
-                  <Coins size={14} className="text-yellow-500" />
-                  <span>积分余额: {integral}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-100 text-sm font-medium">
+                <Coins size={14} className="text-yellow-500" />
+                <span>积分余额: {integral}</span>
+              </div>
               <nav className="flex gap-1 bg-neutral-100 p-1 rounded-lg">
                 <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
                 <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义款式" />
@@ -188,29 +225,12 @@ function SmartRecTab() {
   const handleAnalyze = async () => {
     if (!handImage) return;
 
-    // Integral Verify
-    if (saas.userId && saas.toolId) {
-      const verify = await saasVerify(saas.userId, saas.toolId);
-      if (!verify.success) {
-        alert(verify.message || "积分不足");
-        return;
-      }
-    }
-
     setIsAnalyzing(true);
     try {
       const { base64, mimeType } = await fileToBase64(handImage.file);
       const result = await analyzeHand(base64, mimeType);
       setAnalysis(result);
       setSelectedStyle(result.recommendedStyle);
-
-      // Integral Consume
-      if (saas.userId && saas.toolId) {
-        const consume = await saasConsume(saas.userId, saas.toolId);
-        if (consume.success) {
-          saas.setIntegral(consume.data.currentIntegral);
-        }
-      }
     } catch (error) {
       console.error(error);
       alert("分析手部特征失败。");

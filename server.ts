@@ -38,14 +38,38 @@ async function startServer() {
     }
   };
 
-  app.post("/api/tool/launch", (req, res) => proxyRequest(req, res, "/api/tool/launch"));
-  app.post("/api/tool/verify", (req, res) => proxyRequest(req, res, "/api/tool/verify"));
-  app.post("/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
+  app.post("*/api/tool/launch", (req, res) => proxyRequest(req, res, "/api/tool/launch"));
+  app.post("*/api/tool/verify", (req, res) => proxyRequest(req, res, "/api/tool/verify"));
+  app.post("*/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
+
+  app.get("*/api/health-check", async (req, res) => {
+    try {
+      // Try to ping the SaaS domain to check reachability
+      // We'll use a HEAD request or a small GET to check the domain
+      const saasRes = await axios.get("http://aibigtree.com/api/tool/launch", { 
+        timeout: 3000,
+        validateStatus: () => true // Accept any status code, we just want to see if server responds
+      });
+      
+      res.json({ 
+        success: true, 
+        connected: true,
+        message: "SaaS 系统接口已连接"
+      });
+    } catch (e: any) {
+      console.error("SaaS Connection Check Failed:", e.message);
+      res.json({ 
+        success: true, 
+        connected: false,
+        message: "SaaS 系统接口连接失败 (aibigtree.com)"
+      });
+    }
+  });
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
   // API Routes
-  app.post('/api/analyze-hand', async (req, res) => {
+  app.post('*/api/analyze-hand', async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
 
@@ -87,7 +111,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/analyze-nail-reference', async (req, res) => {
+  app.post('*/api/analyze-nail-reference', async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
 
@@ -129,7 +153,7 @@ async function startServer() {
     }
   });
 
-  app.post('/api/generate-nail-try-on', async (req, res) => {
+  app.post('*/api/generate-nail-try-on', async (req, res) => {
     try {
       const { handImageBase64, handImageMimeType, prompt, referenceImageBase64, referenceImageMimeType } = req.body;
 

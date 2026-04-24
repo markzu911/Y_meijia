@@ -35,7 +35,7 @@ export interface ConsumeResponse {
 }
 
 export const saasLaunch = async (userId: string, toolId: string): Promise<LaunchResponse> => {
-  const response = await fetch('/api/tool/launch', {
+  const response = await fetch('api/tool/launch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, toolId }),
@@ -44,7 +44,7 @@ export const saasLaunch = async (userId: string, toolId: string): Promise<Launch
 };
 
 export const saasVerify = async (userId: string, toolId: string): Promise<VerifyResponse> => {
-  const response = await fetch('/api/tool/verify', {
+  const response = await fetch('api/tool/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, toolId }),
@@ -53,7 +53,7 @@ export const saasVerify = async (userId: string, toolId: string): Promise<Verify
 };
 
 export const saasConsume = async (userId: string, toolId: string): Promise<ConsumeResponse> => {
-  const response = await fetch('/api/tool/consume', {
+  const response = await fetch('api/tool/consume', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, toolId }),

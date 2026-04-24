@@ -1,6 +1,6 @@
 
 export const analyzeHand = async (base64Image: string, mimeType: string) => {
-  const response = await fetch('/api/analyze-hand', {
+  const response = await fetch('api/analyze-hand', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ base64: base64Image, mimeType }),
@@ -10,7 +10,7 @@ export const analyzeHand = async (base64Image: string, mimeType: string) => {
 };
 
 export const analyzeNailReference = async (base64Image: string, mimeType: string) => {
-  const response = await fetch('/api/analyze-nail-reference', {
+  const response = await fetch('api/analyze-nail-reference', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ base64: base64Image, mimeType }),
@@ -26,7 +26,7 @@ export const generateNailTryOn = async (
   referenceImageBase64?: string,
   referenceImageMimeType?: string
 ) => {
-  const response = await fetch('/api/generate-nail-try-on', {
+  const response = await fetch('api/generate-nail-try-on', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
