@@ -65,7 +65,7 @@ export default function App() {
 
   const checkApiStatus = async () => {
     try {
-      const res = await fetch('/api/health-check');
+      const res = await fetch('api/health-check');
       const data = await res.json();
       setApiStatus({ connected: data.connected, message: data.message });
     } catch (e) {
