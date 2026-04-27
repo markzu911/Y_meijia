@@ -21,8 +21,23 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
 
-  // SaaS Proxy Logic
+  // SaaS Compliance Headers
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Content-Security-Policy", "frame-ancestors *");
+    
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+    next();
+  });
+
+  // SaaS Proxy Logic - Follows V4-3Step Doc
   const proxyRequest = async (req: any, res: any, targetPath: string) => {
+    // Document says: const targetUrl = `http://aibigtree.com${targetPath}`;
     const targetUrl = `http://aibigtree.com${targetPath}`;
     try {
       const response = await axios({
@@ -33,16 +48,19 @@ async function startServer() {
       });
       res.status(response.status).json(response.data);
     } catch (error: any) {
-      console.error(`SaaS Proxy Error (${targetPath}):`, error.message);
-      res.status(500).json({ success: false, message: "代理转发失败", error: error.message });
+      console.error(`SaaS Proxy Error (${targetUrl}):`, error.message);
+      res.status(500).json({ error: "代理转发失败" });
     }
   };
 
-  app.post("*/api/tool/launch", (req, res) => proxyRequest(req, res, "/api/tool/launch"));
-  app.post("*/api/tool/verify", (req, res) => proxyRequest(req, res, "/api/tool/verify"));
-  app.post("*/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
+  // Support potential path prefixes from SaaS platform proxy (e.g. /ai-tool/{toolId}/api/...)
+  const catchAllApi = (path: string) => new RegExp(`.*${path.replace(/\//g, '\\/')}$`);
 
-  app.get("*/api/health-check", async (req, res) => {
+  app.post(catchAllApi("/api/tool/launch"), (req, res) => proxyRequest(req, res, "/api/tool/launch"));
+  app.post(catchAllApi("/api/tool/verify"), (req, res) => proxyRequest(req, res, "/api/tool/verify"));
+  app.post(catchAllApi("/api/tool/consume"), (req, res) => proxyRequest(req, res, "/api/tool/consume"));
+
+  app.get(catchAllApi("/api/health-check"), async (req, res) => {
     try {
       const saasRes = await axios.get("http://aibigtree.com/api/tool/launch", { 
         timeout: 3000,
@@ -66,7 +84,7 @@ async function startServer() {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
   // API Routes
-  app.post('*/api/analyze-hand', async (req, res) => {
+  app.post(catchAllApi("/api/analyze-hand"), async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
 
@@ -108,7 +126,7 @@ async function startServer() {
     }
   });
 
-  app.post('*/api/analyze-nail-reference', async (req, res) => {
+  app.post(catchAllApi("/api/analyze-nail-reference"), async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
 
@@ -150,7 +168,7 @@ async function startServer() {
     }
   });
 
-  app.post('*/api/generate-nail-try-on', async (req, res) => {
+  app.post(catchAllApi("/api/generate-nail-try-on"), async (req, res) => {
     try {
       const { handImageBase64, handImageMimeType, prompt, referenceImageBase64, referenceImageMimeType } = req.body;
 

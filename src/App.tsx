@@ -65,7 +65,7 @@ export default function App() {
 
   const checkApiStatus = async () => {
     try {
-      const res = await fetch('api/health-check');
+      const res = await fetch('/api/health-check');
       const data = await res.json();
       setApiStatus({ connected: data.connected, message: data.message });
     } catch (e) {
@@ -74,7 +74,7 @@ export default function App() {
   };
 
   const refreshIntegral = async (uid: string, tid: string) => {
-    if (!uid || !tid || uid === 'null' || tid === 'null') return;
+    if (!uid || !tid || uid === 'null' || tid === 'null' || uid === 'undefined' || tid === 'undefined') return;
     try {
       const res = await saasLaunch(uid, tid);
       if (res.success) {
@@ -90,7 +90,7 @@ export default function App() {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SAAS_INIT') {
         const { userId: uid, toolId: tid } = event.data;
-        if (uid && tid && uid !== 'null' && tid !== 'null') {
+        if (uid && tid && uid !== 'null' && tid !== 'null' && uid !== 'undefined' && tid !== 'undefined') {
           setUserId(uid);
           setToolId(tid);
           refreshIntegral(uid, tid);
@@ -121,19 +121,19 @@ export default function App() {
         <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-pink-500 rounded-lg flex items-center justify-center text-white">
+              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
                 <Sparkles size={18} />
               </div>
               <div className="flex flex-col">
                 <h1 className="text-xl font-semibold tracking-tight">NailAI 美甲工作室</h1>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   {apiStatus?.connected ? (
-                    <span className="flex items-center gap-1 text-[10px] text-green-500 font-medium uppercase tracking-wider">
-                      <Wifi size={10} /> SaaS 接口已通
+                    <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium uppercase tracking-wider">
+                      <Wifi size={10} /> 
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-[10px] text-red-500 font-medium uppercase tracking-wider">
-                      <WifiOff size={10} /> SaaS 接口失败
+                    <span className="flex items-center gap-1 text-[10px] text-red-600 font-medium uppercase tracking-wider">
+                      <WifiOff size={10} /> SaaS
                     </span>
                   )}
                 </div>
@@ -141,11 +141,11 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-100 text-sm font-medium">
-                <Coins size={14} className="text-yellow-500" />
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded-full border border-neutral-200 text-sm font-medium">
+                <Coins size={14} className="text-neutral-500" />
                 <span>积分余额: {integral}</span>
               </div>
-              <nav className="flex gap-1 bg-neutral-100 p-1 rounded-lg">
+              <nav className="flex gap-1 bg-neutral-200/50 p-1 rounded-lg">
                 <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
                 <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义款式" />
               </nav>
@@ -171,7 +171,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        active ? 'bg-white text-pink-600 shadow-sm' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-200/50'
+        active ? 'bg-white text-black shadow-sm' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-200/30'
       }`}
     >
       {icon}
@@ -182,7 +182,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
 
 function ImageUpload({ image, onUpload, label }: { image: string | null; onUpload: (file: File) => void; label: string }) {
   return (
-    <div className="relative group aspect-[3/4] w-full max-w-sm mx-auto bg-neutral-100 rounded-2xl border-2 border-dashed border-neutral-300 overflow-hidden transition-colors hover:border-pink-400 hover:bg-pink-50/50">
+    <div className="relative group aspect-[3/4] w-full max-w-sm mx-auto bg-neutral-100 rounded-2xl border-2 border-dashed border-neutral-300 overflow-hidden transition-colors hover:border-black hover:bg-neutral-200/30">
       {image ? (
         <>
           <img src={image} alt="Uploaded" className="w-full h-full object-cover" />
@@ -196,7 +196,7 @@ function ImageUpload({ image, onUpload, label }: { image: string | null; onUploa
         </>
       ) : (
         <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center text-neutral-500 gap-3 p-6 text-center">
-          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-neutral-400 group-hover:text-pink-500 group-hover:scale-110 transition-all">
+          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-neutral-400 group-hover:text-black group-hover:scale-110 transition-all">
             <Upload size={24} />
           </div>
           <div>
@@ -300,25 +300,25 @@ function SmartRecTab() {
             <button
               onClick={handleAnalyze}
               disabled={!handImage || isAnalyzing}
-              className="w-full py-4 bg-pink-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAnalyzing ? <><Loader2 className="animate-spin" size={20} /> 分析手部特征...</> : <><Sparkles size={20} /> 智能分析手部特征</>}
             </button>
           ) : (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-6">
-              <div className="bg-pink-50 p-5 rounded-2xl border border-pink-100">
-                <h3 className="font-semibold text-pink-900 mb-3 flex items-center gap-2"><Sparkles size={18} /> 分析结果</h3>
+              <div className="bg-neutral-100/80 p-5 rounded-2xl border border-neutral-200">
+                <h3 className="font-semibold text-neutral-900 mb-3 flex items-center gap-2"><Sparkles size={18} className="text-neutral-600" /> 分析结果</h3>
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="bg-white p-3 rounded-xl shadow-sm">
+                  <div className="bg-white p-3 rounded-xl shadow-sm border border-neutral-100">
                     <p className="text-xs text-neutral-500 mb-1">手型</p>
                     <p className="font-medium text-sm">{analysis.handShape}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl shadow-sm">
+                  <div className="bg-white p-3 rounded-xl shadow-sm border border-neutral-100">
                     <p className="text-xs text-neutral-500 mb-1">肤色</p>
                     <p className="font-medium text-sm">{analysis.skinTone}</p>
                   </div>
                 </div>
-                <p className="text-sm text-pink-800 leading-relaxed">{analysis.explanation}</p>
+                <p className="text-sm text-neutral-700 leading-relaxed">{analysis.explanation}</p>
               </div>
 
               <div>
@@ -328,9 +328,9 @@ function SmartRecTab() {
                 </div>
 
                 {mode === 'recommend' ? (
-                  <div className="p-4 border-2 border-pink-500 bg-pink-50 rounded-xl text-center">
-                    <p className="text-sm text-pink-600 font-medium mb-1">推荐款式</p>
-                    <p className="text-xl font-bold text-pink-900">{analysis.recommendedStyle}</p>
+                  <div className="p-4 border-2 border-black bg-neutral-900 rounded-xl text-center">
+                    <p className="text-xs text-neutral-400 font-medium mb-1 uppercase tracking-wider">推荐款式</p>
+                    <p className="text-xl font-bold text-white">{analysis.recommendedStyle}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3">
@@ -340,7 +340,7 @@ function SmartRecTab() {
                         onClick={() => setSelectedStyle(style)}
                         className={`p-3 rounded-xl border text-sm font-medium transition-all ${
                           selectedStyle === style 
-                            ? 'border-pink-500 bg-pink-50 text-pink-700 shadow-sm' 
+                            ? 'border-black bg-black text-white shadow-sm' 
                             : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50 text-neutral-700'
                         }`}
                       >
@@ -354,7 +354,7 @@ function SmartRecTab() {
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full py-4 bg-neutral-900 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating ? <><Loader2 className="animate-spin" size={20} /> 生成中...</> : <><Wand2 size={20} /> 一键试戴</>}
               </button>
@@ -388,7 +388,7 @@ function SmartRecTab() {
                     <h4 className="text-xs font-medium text-neutral-400 flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
                     <button 
                       onClick={() => downloadImages([resultImage, ...history])}
-                      className="text-xs font-medium text-pink-600 hover:text-pink-700 flex items-center gap-1"
+                      className="text-xs font-medium text-neutral-900 hover:text-black flex items-center gap-1 underline underline-offset-2"
                     >
                       <Download size={14} /> 下载全部
                     </button>
@@ -545,7 +545,7 @@ function CustomTab() {
           <button
             onClick={handleGenerate}
             disabled={!handImage || !nailImage || isGenerating}
-            className="w-full py-4 bg-neutral-900 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-4 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? <><Loader2 className="animate-spin" size={20} /> 生成中...</> : <><Wand2 size={20} /> 一键试戴</>}
           </button>
@@ -577,7 +577,7 @@ function CustomTab() {
                     <h4 className="text-xs font-medium text-neutral-400 flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
                     <button 
                       onClick={() => downloadImages([resultImage, ...history])}
-                      className="text-xs font-medium text-pink-600 hover:text-pink-700 flex items-center gap-1"
+                      className="text-xs font-medium text-neutral-900 hover:text-black flex items-center gap-1 underline underline-offset-2"
                     >
                       <Download size={14} /> 下载全部
                     </button>
