@@ -3,7 +3,7 @@ import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, 
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
 import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
-import { fileToBase64 } from './lib/utils';
+import { fileToBase64, compressImage } from './lib/utils';
 
 const SaasContext = createContext<{
   userId: string;
@@ -103,7 +103,7 @@ export default function App() {
 
   return (
     <SaasContext.Provider value={{ userId, toolId, integral, setIntegral, refreshIntegral }}>
-      <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans">
+      <div className="min-h-screen bg-[#FAF8F5] text-[#4A443D] font-sans">
         <AnimatePresence>
           {apiStatus && !apiStatus.connected && (
             <motion.div
@@ -118,10 +118,10 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <header className="bg-white border-b border-neutral-200 sticky top-0 z-10">
+        <header className="bg-white border-b border-[#EAE6DF] sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white">
+              <div className="w-8 h-8 bg-[#9C7A63] rounded-lg flex items-center justify-center text-white">
                 <Sparkles size={18} />
               </div>
               <div className="flex flex-col">
@@ -141,11 +141,11 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-100 text-neutral-700 rounded-full border border-neutral-200 text-sm font-medium">
-                <Coins size={14} className="text-neutral-500" />
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F2EFE9] text-[#696158] rounded-full border border-[#EAE6DF] text-sm font-medium">
+                <Coins size={14} className="text-[#968F85]" />
                 <span>积分余额: {integral}</span>
               </div>
-              <nav className="flex gap-1 bg-neutral-200/50 p-1 rounded-lg">
+              <nav className="flex gap-1 bg-[#EAE6DF]/50 p-1 rounded-lg">
                 <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
                 <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义款式" />
               </nav>
@@ -171,7 +171,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-        active ? 'bg-white text-black shadow-sm' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-200/30'
+        active ? 'bg-white text-[#7A5B45] shadow-sm' : 'text-[#968F85] hover:text-[#696158] hover:bg-[#EAE6DF]/30'
       }`}
     >
       {icon}
@@ -182,12 +182,12 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
 
 function ImageUpload({ image, onUpload, label }: { image: string | null; onUpload: (file: File) => void; label: string }) {
   return (
-    <div className="relative group aspect-[3/4] w-full max-w-sm mx-auto bg-neutral-100 rounded-2xl border-2 border-dashed border-neutral-300 overflow-hidden transition-colors hover:border-black hover:bg-neutral-200/30">
+    <div className="relative group aspect-[3/4] w-full max-w-sm mx-auto bg-[#F2EFE9] rounded-2xl border-2 border-dashed border-[#D5CFC4] overflow-hidden transition-colors hover:border-[#9C7A63] hover:bg-[#EAE6DF]/30">
       {image ? (
         <>
           <img src={image} alt="Uploaded" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <label className="cursor-pointer bg-white text-neutral-900 px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2 hover:bg-neutral-100 transition-colors">
+            <label className="cursor-pointer bg-white text-[#4A443D] px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2 hover:bg-[#F2EFE9] transition-colors">
               <Camera size={16} />
               更换照片
               <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
@@ -195,13 +195,16 @@ function ImageUpload({ image, onUpload, label }: { image: string | null; onUploa
           </div>
         </>
       ) : (
-        <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center text-neutral-500 gap-3 p-6 text-center">
-          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-neutral-400 group-hover:text-black group-hover:scale-110 transition-all">
+        <label className="absolute inset-0 cursor-pointer flex flex-col items-center justify-center text-[#968F85] gap-3 p-6 text-center">
+          <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center text-[#B0A9A0] group-hover:text-[#7A5B45] group-hover:scale-110 transition-all">
             <Upload size={24} />
           </div>
           <div>
-            <p className="font-medium text-neutral-700">{label}</p>
-            <p className="text-xs text-neutral-400 mt-1">点击或拖拽上传</p>
+            <p className="font-medium text-[#696158]">{label}</p>
+            <p className="text-[10px] text-[#B0A9A0] mt-1 leading-tight px-4">
+              支持JPG, PNG, WebP<br/>
+              最大20MB (自动压缩上传)
+            </p>
           </div>
           <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
         </label>
@@ -286,11 +289,17 @@ function SmartRecTab() {
             <h2 className="text-2xl font-semibold mb-2">1. 上传手部照片</h2>
             <ImageUpload 
               image={handImage?.url || null} 
-              onUpload={(file) => {
-                setHandImage({ url: URL.createObjectURL(file), file });
-                setAnalysis(null);
-                setResultImage(null);
-                setHistory([]);
+              onUpload={async (file) => {
+                try {
+                  const compressed = await compressImage(file);
+                  setHandImage({ url: URL.createObjectURL(compressed), file: compressed });
+                  setAnalysis(null);
+                  setResultImage(null);
+                  setHistory([]);
+                } catch (e) {
+                  console.error('Compression failed', e);
+                  setHandImage({ url: URL.createObjectURL(file), file });
+                }
               }} 
               label="上传手部照片"
             />
@@ -300,36 +309,36 @@ function SmartRecTab() {
             <button
               onClick={handleAnalyze}
               disabled={!handImage || isAnalyzing}
-              className="w-full py-4 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-[#9C7A63] text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-[#856550] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAnalyzing ? <><Loader2 className="animate-spin" size={20} /> 分析手部特征...</> : <><Sparkles size={20} /> 智能分析手部特征</>}
             </button>
           ) : (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-6">
-              <div className="bg-neutral-100/80 p-5 rounded-2xl border border-neutral-200">
-                <h3 className="font-semibold text-neutral-900 mb-3 flex items-center gap-2"><Sparkles size={18} className="text-neutral-600" /> 分析结果</h3>
+              <div className="bg-[#F2EFE9]/80 p-5 rounded-2xl border border-[#EAE6DF]">
+                <h3 className="font-semibold text-[#4A443D] mb-3 flex items-center gap-2"><Sparkles size={18} className="text-[#7D756A]" /> 分析结果</h3>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="bg-white p-3 rounded-xl shadow-sm border border-neutral-100">
-                    <p className="text-xs text-neutral-500 mb-1">手型</p>
+                    <p className="text-xs text-[#968F85] mb-1">手型</p>
                     <p className="font-medium text-sm">{analysis.handShape}</p>
                   </div>
                   <div className="bg-white p-3 rounded-xl shadow-sm border border-neutral-100">
-                    <p className="text-xs text-neutral-500 mb-1">肤色</p>
+                    <p className="text-xs text-[#968F85] mb-1">肤色</p>
                     <p className="font-medium text-sm">{analysis.skinTone}</p>
                   </div>
                 </div>
-                <p className="text-sm text-neutral-700 leading-relaxed">{analysis.explanation}</p>
+                <p className="text-sm text-[#696158] leading-relaxed">{analysis.explanation}</p>
               </div>
 
               <div>
-                <div className="flex bg-neutral-100 p-1 rounded-lg mb-4">
-                  <button onClick={() => { setMode('recommend'); setSelectedStyle(analysis.recommendedStyle); }} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'recommend' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}>使用推荐款式</button>
-                  <button onClick={() => setMode('manual')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'manual' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}>手动选择款式</button>
+                <div className="flex bg-[#F2EFE9] p-1 rounded-lg mb-4">
+                  <button onClick={() => { setMode('recommend'); setSelectedStyle(analysis.recommendedStyle); }} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'recommend' ? 'bg-white shadow-sm text-[#4A443D]' : 'text-[#968F85] hover:text-[#696158]'}`}>使用推荐款式</button>
+                  <button onClick={() => setMode('manual')} className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${mode === 'manual' ? 'bg-white shadow-sm text-[#4A443D]' : 'text-[#968F85] hover:text-[#696158]'}`}>手动选择款式</button>
                 </div>
 
                 {mode === 'recommend' ? (
-                  <div className="p-4 border-2 border-black bg-neutral-900 rounded-xl text-center">
-                    <p className="text-xs text-neutral-400 font-medium mb-1 uppercase tracking-wider">推荐款式</p>
+                  <div className="p-4 border-2 border-[#9C7A63] bg-[#4A443D] rounded-xl text-center">
+                    <p className="text-xs text-[#B0A9A0] font-medium mb-1 uppercase tracking-wider">推荐款式</p>
                     <p className="text-xl font-bold text-white">{analysis.recommendedStyle}</p>
                   </div>
                 ) : (
@@ -340,8 +349,8 @@ function SmartRecTab() {
                         onClick={() => setSelectedStyle(style)}
                         className={`p-3 rounded-xl border text-sm font-medium transition-all ${
                           selectedStyle === style 
-                            ? 'border-black bg-black text-white shadow-sm' 
-                            : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50 text-neutral-700'
+                            ? 'border-[#9C7A63] bg-[#9C7A63] text-white shadow-sm' 
+                            : 'border-[#EAE6DF] bg-white hover:border-[#D5CFC4] hover:bg-[#FAF8F5] text-[#696158]'
                         }`}
                       >
                         {style}
@@ -354,7 +363,7 @@ function SmartRecTab() {
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
-                className="w-full py-4 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-[#9C7A63] text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-[#856550] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isGenerating ? <><Loader2 className="animate-spin" size={20} /> 生成中...</> : <><Wand2 size={20} /> 一键试戴</>}
               </button>
@@ -362,10 +371,10 @@ function SmartRecTab() {
           )}
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-sm flex flex-col items-center justify-center min-h-[500px]">
+        <div className="bg-white p-6 rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[500px]">
           {resultImage ? (
             <div className="w-full h-full flex flex-col items-center gap-4">
-              <h3 className="font-medium text-neutral-500 w-full text-center">虚拟试戴效果</h3>
+              <h3 className="font-medium text-[#968F85] w-full text-center">虚拟试戴效果</h3>
               <div className="relative group w-full max-w-sm aspect-[3/4]">
                 <img 
                   src={resultImage} 
@@ -375,7 +384,7 @@ function SmartRecTab() {
                 />
                 <button 
                   onClick={(e) => { e.stopPropagation(); downloadSingleImage(resultImage); }}
-                  className="absolute top-3 right-3 bg-white/90 text-neutral-700 hover:text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                  className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                   title="下载当前图片"
                 >
                   <Download size={18} />
@@ -385,10 +394,10 @@ function SmartRecTab() {
               {history.length > 0 && (
                 <div className="w-full mt-4 pt-4 border-t border-neutral-100">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-medium text-neutral-400 flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
+                    <h4 className="text-xs font-medium text-[#B0A9A0] flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
                     <button 
                       onClick={() => downloadImages([resultImage, ...history])}
-                      className="text-xs font-medium text-neutral-900 hover:text-black flex items-center gap-1 underline underline-offset-2"
+                      className="text-xs font-medium text-[#4A443D] hover:text-[#7A5B45] flex items-center gap-1 underline underline-offset-2"
                     >
                       <Download size={14} /> 下载全部
                     </button>
@@ -399,12 +408,12 @@ function SmartRecTab() {
                         <img
                           src={img}
                           alt={`History ${i}`}
-                          className="w-full h-full object-cover rounded-xl cursor-pointer border border-neutral-200 shadow-sm hover:opacity-80 transition-opacity"
+                          className="w-full h-full object-cover rounded-xl cursor-pointer border border-[#EAE6DF] shadow-sm hover:opacity-80 transition-opacity"
                           onClick={() => setEnlargedImage(img)}
                         />
                         <button 
                           onClick={(e) => { e.stopPropagation(); downloadSingleImage(img); }}
-                          className="absolute top-1 right-1 bg-white/90 text-neutral-700 hover:text-black p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                          className="absolute top-1 right-1 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                           title="下载"
                         >
                           <Download size={12} />
@@ -416,8 +425,8 @@ function SmartRecTab() {
               )}
             </div>
           ) : (
-            <div className="text-center text-neutral-400 flex flex-col items-center gap-3">
-              <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center">
+            <div className="text-center text-[#B0A9A0] flex flex-col items-center gap-3">
+              <div className="w-16 h-16 bg-[#FAF8F5] rounded-full flex items-center justify-center">
                 <ImageIcon size={32} className="text-neutral-300" />
               </div>
               <p>生成的试戴效果将显示在这里</p>
@@ -524,8 +533,13 @@ function CustomTab() {
               <h2 className="text-lg font-semibold mb-2">手部照片</h2>
               <ImageUpload 
                 image={handImage?.url || null} 
-                onUpload={(file) => {
-                  setHandImage({ url: URL.createObjectURL(file), file });
+                onUpload={async (file) => {
+                  try {
+                    const compressed = await compressImage(file);
+                    setHandImage({ url: URL.createObjectURL(compressed), file: compressed });
+                  } catch (e) {
+                    setHandImage({ url: URL.createObjectURL(file), file });
+                  }
                   setResultImage(null);
                   setHistory([]);
                 }} 
@@ -536,7 +550,14 @@ function CustomTab() {
               <h2 className="text-lg font-semibold mb-2">美甲参考图</h2>
               <ImageUpload 
                 image={nailImage?.url || null} 
-                onUpload={(file) => setNailImage({ url: URL.createObjectURL(file), file })} 
+                onUpload={async (file) => {
+                  try {
+                    const compressed = await compressImage(file);
+                    setNailImage({ url: URL.createObjectURL(compressed), file: compressed });
+                  } catch (e) {
+                    setNailImage({ url: URL.createObjectURL(file), file });
+                  }
+                }} 
                 label="上传美甲参考"
               />
             </div>
@@ -545,16 +566,16 @@ function CustomTab() {
           <button
             onClick={handleGenerate}
             disabled={!handImage || !nailImage || isGenerating}
-            className="w-full py-4 bg-black text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-4 bg-[#9C7A63] text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-[#856550] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? <><Loader2 className="animate-spin" size={20} /> 生成中...</> : <><Wand2 size={20} /> 一键试戴</>}
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-sm flex flex-col items-center justify-center min-h-[500px]">
+        <div className="bg-white p-6 rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[500px]">
           {resultImage ? (
             <div className="w-full h-full flex flex-col items-center gap-4">
-              <h3 className="font-medium text-neutral-500 w-full text-center">虚拟试戴效果</h3>
+              <h3 className="font-medium text-[#968F85] w-full text-center">虚拟试戴效果</h3>
               <div className="relative group w-full max-w-sm aspect-[3/4]">
                 <img 
                   src={resultImage} 
@@ -564,7 +585,7 @@ function CustomTab() {
                 />
                 <button 
                   onClick={(e) => { e.stopPropagation(); downloadSingleImage(resultImage); }}
-                  className="absolute top-3 right-3 bg-white/90 text-neutral-700 hover:text-black p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                  className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                   title="下载当前图片"
                 >
                   <Download size={18} />
@@ -574,10 +595,10 @@ function CustomTab() {
               {history.length > 0 && (
                 <div className="w-full mt-4 pt-4 border-t border-neutral-100">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-xs font-medium text-neutral-400 flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
+                    <h4 className="text-xs font-medium text-[#B0A9A0] flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
                     <button 
                       onClick={() => downloadImages([resultImage, ...history])}
-                      className="text-xs font-medium text-neutral-900 hover:text-black flex items-center gap-1 underline underline-offset-2"
+                      className="text-xs font-medium text-[#4A443D] hover:text-[#7A5B45] flex items-center gap-1 underline underline-offset-2"
                     >
                       <Download size={14} /> 下载全部
                     </button>
@@ -588,12 +609,12 @@ function CustomTab() {
                         <img
                           src={img}
                           alt={`History ${i}`}
-                          className="w-full h-full object-cover rounded-xl cursor-pointer border border-neutral-200 shadow-sm hover:opacity-80 transition-opacity"
+                          className="w-full h-full object-cover rounded-xl cursor-pointer border border-[#EAE6DF] shadow-sm hover:opacity-80 transition-opacity"
                           onClick={() => setEnlargedImage(img)}
                         />
                         <button 
                           onClick={(e) => { e.stopPropagation(); downloadSingleImage(img); }}
-                          className="absolute top-1 right-1 bg-white/90 text-neutral-700 hover:text-black p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                          className="absolute top-1 right-1 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                           title="下载"
                         >
                           <Download size={12} />
@@ -605,8 +626,8 @@ function CustomTab() {
               )}
             </div>
           ) : (
-            <div className="text-center text-neutral-400 flex flex-col items-center gap-3">
-              <div className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center">
+            <div className="text-center text-[#B0A9A0] flex flex-col items-center gap-3">
+              <div className="w-16 h-16 bg-[#FAF8F5] rounded-full flex items-center justify-center">
                 <ImageIcon size={32} className="text-neutral-300" />
               </div>
               <p>上传图片后点击生成</p>

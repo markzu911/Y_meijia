@@ -19,7 +19,7 @@ async function startServer() {
     console.error('CRITICAL: GEMINI_API_KEY is not set in .env or environment variables.');
   }
 
-  app.use(express.json({ limit: '50mb' }));
+  app.use(express.json({ limit: '20mb' }));
 
   // SaaS Compliance Headers
   app.use((req, res, next) => {
