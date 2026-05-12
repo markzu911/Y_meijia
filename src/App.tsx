@@ -119,35 +119,42 @@ export default function App() {
         </AnimatePresence>
 
         <header className="bg-white border-b border-[#EAE6DF] sticky top-0 z-10">
-          <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#9C7A63] rounded-lg flex items-center justify-center text-white">
-                <Sparkles size={18} />
-              </div>
-              <div className="flex flex-col">
-                <h1 className="text-xl font-semibold tracking-tight">NailAI 美甲工作室</h1>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  {apiStatus?.connected ? (
-                    <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium uppercase tracking-wider">
-                      <Wifi size={10} /> 
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[10px] text-red-600 font-medium uppercase tracking-wider">
-                      <WifiOff size={10} /> SaaS
-                    </span>
-                  )}
+          <div className="max-w-5xl mx-auto px-4 py-3 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-2">
+            <div className="flex items-center justify-between w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-[#9C7A63] rounded-lg flex items-center justify-center text-white shrink-0">
+                  <Sparkles size={18} />
                 </div>
+                <div className="flex flex-col">
+                  <h1 className="text-lg sm:text-xl font-semibold tracking-tight whitespace-nowrap">NailAI 美甲工作室</h1>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {apiStatus?.connected ? (
+                      <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium uppercase tracking-wider">
+                        <Wifi size={10} /> 
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] text-red-600 font-medium uppercase tracking-wider">
+                        <WifiOff size={10} /> SaaS
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:hidden flex items-center gap-2 px-3 py-1 bg-[#F2EFE9] text-[#696158] rounded-full border border-[#EAE6DF] text-xs font-medium">
+                <Coins size={12} className="text-[#968F85]" />
+                <span>积分: {integral}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F2EFE9] text-[#696158] rounded-full border border-[#EAE6DF] text-sm font-medium">
+            <div className="flex items-center justify-between w-full sm:w-auto gap-4">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F2EFE9] text-[#696158] rounded-full border border-[#EAE6DF] text-sm font-medium">
                 <Coins size={14} className="text-[#968F85]" />
                 <span>积分余额: {integral}</span>
               </div>
-              <nav className="flex gap-1 bg-[#EAE6DF]/50 p-1 rounded-lg">
+              <nav className="flex gap-1 bg-[#EAE6DF]/50 p-1 rounded-lg w-full sm:w-auto">
                 <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
-                <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义款式" />
+                <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义" />
               </nav>
             </div>
           </div>
@@ -170,12 +177,14 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+      className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-all ${
         active ? 'bg-white text-[#7A5B45] shadow-sm' : 'text-[#968F85] hover:text-[#696158] hover:bg-[#EAE6DF]/30'
       }`}
     >
       {icon}
-      {label}
+      <span className="hidden sm:inline">{label}</span>
+      {label === '智能推荐' && <span className="sm:hidden">智能</span>}
+      {label === '自定义' && <span className="sm:hidden">自定义</span>}
     </button>
   );
 }
@@ -371,7 +380,7 @@ function SmartRecTab() {
           )}
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[500px]">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px]">
           {resultImage ? (
             <div className="w-full h-full flex flex-col items-center gap-4">
               <h3 className="font-medium text-[#968F85] w-full text-center">虚拟试戴效果</h3>
@@ -572,7 +581,7 @@ function CustomTab() {
           </button>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[500px]">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px]">
           {resultImage ? (
             <div className="w-full h-full flex flex-col items-center gap-4">
               <h3 className="font-medium text-[#968F85] w-full text-center">虚拟试戴效果</h3>
