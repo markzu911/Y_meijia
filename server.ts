@@ -64,17 +64,8 @@ async function startServer() {
   registerApi('post', "/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
   registerApi('post', "/api/upload/direct-token", (req, res) => proxyRequest(req, res, "/api/upload/direct-token"));
   registerApi('post', "/api/upload/commit", (req, res) => proxyRequest(req, res, "/api/upload/commit"));
-  registerApi('get', "/api/health-check", async (req, res) => {
-    try {
-      // Test connectivity to SaaS
-      await axios.get("http://aibigtree.com/api/tool/launch", { timeout: 2000, validateStatus: () => true });
-      res.json({ success: true, connected: true, message: "SaaS 系统接口已连接" });
-    } catch (e: any) {
-      res.json({ success: true, connected: false, message: "SaaS 系统接口连接失败" });
-    }
-  });
-
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+ 
+   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
   // SaaS Backend Save Logic (Rule 8-3)
   const saveResultToSaas = async (userId: string, toolId: string, base64Data: string, mimeType: string) => {

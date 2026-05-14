@@ -61,17 +61,6 @@ export default function App() {
   const [userId, setUserId] = useState<string>('');
   const [toolId, setToolId] = useState<string>('');
   const [integral, setIntegral] = useState<number>(0);
-  const [apiStatus, setApiStatus] = useState<{ connected: boolean; message: string } | null>(null);
-
-  const checkApiStatus = async () => {
-    try {
-      const res = await fetch('/api/health-check');
-      const data = await res.json();
-      setApiStatus({ connected: data.connected, message: data.message });
-    } catch (e) {
-      setApiStatus({ connected: false, message: '无法连接到后端服务' });
-    }
-  };
 
   const refreshIntegral = async (uid: string, tid: string) => {
     if (!uid || !tid || uid === 'null' || tid === 'null' || uid === 'undefined' || tid === 'undefined') return;
@@ -86,7 +75,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    checkApiStatus();
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SAAS_INIT') {
         const { userId: uid, toolId: tid } = event.data;
@@ -104,20 +92,6 @@ export default function App() {
   return (
     <SaasContext.Provider value={{ userId, toolId, integral, setIntegral, refreshIntegral }}>
       <div className="min-h-screen bg-[#FAF8F5] text-[#4A443D] font-sans">
-        <AnimatePresence>
-          {apiStatus && !apiStatus.connected && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="bg-red-500 text-white px-4 py-2 flex items-center justify-center gap-2 text-sm font-medium sticky top-0 z-50 overflow-hidden"
-            >
-              <AlertCircle size={16} />
-              <span>{apiStatus.message}。核心功能将无法使用，请检查配置。</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <header className="bg-white border-b border-[#EAE6DF] sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 py-3 sm:py-0 sm:h-16 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-2">
             <div className="flex items-center justify-between w-full sm:w-auto">
@@ -127,17 +101,6 @@ export default function App() {
                 </div>
                 <div className="flex flex-col">
                   <h1 className="text-lg sm:text-xl font-semibold tracking-tight whitespace-nowrap">NailAI 美甲工作室</h1>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {apiStatus?.connected ? (
-                      <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium uppercase tracking-wider">
-                        <Wifi size={10} /> 
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-[10px] text-red-600 font-medium uppercase tracking-wider">
-                        <WifiOff size={10} /> SaaS
-                      </span>
-                    )}
-                  </div>
                 </div>
               </div>
 
