@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Download, Coins, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
-import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
+import { saasLaunch, saasVerify, saasConsume, saasUploadImage, saasFileList } from './services/saasService';
 import { fileToBase64, compressImage } from './lib/utils';
 
 const SaasContext = createContext<{
@@ -57,7 +57,7 @@ declare global {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'smart' | 'custom'>('smart');
+  const [activeTab, setActiveTab] = useState<'smart' | 'custom' | 'gallery'>('smart');
   const [userId, setUserId] = useState<string>('');
   const [toolId, setToolId] = useState<string>('');
   const [integral, setIntegral] = useState<number>(0);
@@ -155,6 +155,7 @@ export default function App() {
               <nav className="flex gap-1 bg-[#EAE6DF]/50 p-1 rounded-lg w-full sm:w-auto">
                 <TabButton active={activeTab === 'smart'} onClick={() => setActiveTab('smart')} icon={<Sparkles size={16} />} label="智能推荐" />
                 <TabButton active={activeTab === 'custom'} onClick={() => setActiveTab('custom')} icon={<ImageIcon size={16} />} label="自定义" />
+                <TabButton active={activeTab === 'gallery'} onClick={() => setActiveTab('gallery')} icon={<History size={16} />} label="我的图库" />
               </nav>
             </div>
           </div>
@@ -166,6 +167,9 @@ export default function App() {
           </div>
           <div className={activeTab === 'custom' ? 'block' : 'hidden'}>
             <CustomTab />
+          </div>
+          <div className={activeTab === 'gallery' ? 'block' : 'hidden'}>
+            <GalleryTab />
           </div>
         </main>
       </div>
@@ -185,6 +189,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
       <span className="hidden sm:inline">{label}</span>
       {label === '智能推荐' && <span className="sm:hidden">智能</span>}
       {label === '自定义' && <span className="sm:hidden">自定义</span>}
+      {label === '我的图库' && <span className="sm:hidden">图库</span>}
     </button>
   );
 }
@@ -275,11 +280,21 @@ function SmartRecTab() {
       }
       setResultImage(result);
 
-      // Integral Consume
+      // Integral Consume & Result Persistence
       if (saas.userId && saas.toolId) {
         const consume = await saasConsume(saas.userId, saas.toolId);
         if (consume.success) {
           saas.setIntegral(consume.data.currentIntegral);
+          // Upload result image to SaaS records (Mine Images)
+          try {
+            await saasUploadImage({
+              userId: saas.userId,
+              base64: result,
+              source: 'result'
+            });
+          } catch (uploadError) {
+            console.error('Failed to sync result image to SaaS:', uploadError);
+          }
         }
       }
     } catch (error) {
@@ -481,6 +496,121 @@ function SmartRecTab() {
   );
 }
 
+function GalleryTab() {
+  const saas = useContext(SaasContext);
+  const [images, setImages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+
+  const fetchImages = async () => {
+    if (!saas.userId) return;
+    setIsLoading(true);
+    try {
+      const res = await saasFileList(saas.userId);
+      if (res.success) {
+        setImages(res.data);
+      }
+    } catch (e) {
+      console.error('Fetch gallery failed', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchImages();
+  }, [saas.userId]);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">我的灵感图库</h2>
+        <button 
+          onClick={fetchImages}
+          disabled={isLoading}
+          className="text-sm font-medium text-[#9C7A63] hover:text-[#7A5B45] flex items-center gap-1 transition-colors"
+        >
+          <Loader2 size={14} className={isLoading ? 'animate-spin' : ''} /> 刷新
+        </button>
+      </div>
+
+      {isLoading && images.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-[#B0A9A0]">
+          <Loader2 size={40} className="animate-spin mb-4 opacity-20" />
+          <p>正在获取您的云端作品...</p>
+        </div>
+      ) : images.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-6">
+          {images.map((img) => (
+            <motion.div 
+              key={img.id}
+              layout
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="relative group aspect-[3/4] bg-white rounded-2xl overflow-hidden shadow-sm border border-[#EAE6DF] hover:shadow-md transition-all"
+            >
+              <img 
+                src={img.url} 
+                alt={img.fileName} 
+                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500" 
+                onClick={() => setEnlargedImage(img.url)}
+              />
+              <div className="absolute top-2 right-2 flex gap-1">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); downloadSingleImage(img.url); }}
+                  className="bg-white/90 text-[#696158] hover:text-[#7A5B45] p-1.5 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Download size={14} />
+                </button>
+              </div>
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-[10px] text-white/80 font-mono">{new Date(img.createdAt).toLocaleDateString()}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-3xl border border-[#EAE6DF] p-12 text-center flex flex-col items-center gap-4">
+          <div className="w-16 h-16 bg-[#F2EFE9] rounded-full flex items-center justify-center text-neutral-300">
+            <ImageIcon size={32} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-medium text-[#696158]">图库空空如也</h3>
+            <p className="text-sm text-[#B0A9A0]">在这里可以看到您在所有设备上生成的作品</p>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {enlargedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+            onClick={() => setEnlargedImage(null)}
+          >
+            <motion.img 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              src={enlargedImage} 
+              alt="Enlarged" 
+              className="max-w-full max-h-[90vh] rounded-2xl object-contain shadow-2xl" 
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button 
+              className="absolute top-6 right-6 text-white bg-white/10 hover:bg-white/20 rounded-full p-3 transition-colors"
+              onClick={() => setEnlargedImage(null)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 function CustomTab() {
   const saas = useContext(SaasContext);
   const [handImage, setHandImage] = useState<{ url: string; file: File } | null>(null);
@@ -518,11 +648,21 @@ function CustomTab() {
       }
       setResultImage(result);
 
-      // Integral Consume
+      // Integral Consume & Result Persistence
       if (saas.userId && saas.toolId) {
         const consume = await saasConsume(saas.userId, saas.toolId);
         if (consume.success) {
           saas.setIntegral(consume.data.currentIntegral);
+          // Upload result image to SaaS records (Mine Images)
+          try {
+            await saasUploadImage({
+              userId: saas.userId,
+              base64: result,
+              source: 'result'
+            });
+          } catch (uploadError) {
+            console.error('Failed to sync result image to SaaS:', uploadError);
+          }
         }
       }
     } catch (error) {
