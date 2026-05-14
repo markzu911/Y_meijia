@@ -64,9 +64,6 @@ async function startServer() {
   registerApi('post', "/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
   registerApi('post', "/api/upload/direct-token", (req, res) => proxyRequest(req, res, "/api/upload/direct-token"));
   registerApi('post', "/api/upload/commit", (req, res) => proxyRequest(req, res, "/api/upload/commit"));
-  registerApi('get', "/api/upload/image", (req, res) => proxyRequest(req, res, "/api/upload/image"));
-  registerApi('delete', "/api/upload/image", (req, res) => proxyRequest(req, res, "/api/upload/image"));
-
   registerApi('get', "/api/health-check", async (req, res) => {
     try {
       // Test connectivity to SaaS
