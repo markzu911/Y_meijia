@@ -54,7 +54,7 @@ async function startServer() {
   };
 
   // Support potential path prefixes from SaaS platform proxy (e.g. /ai-tool/{toolId}/api/...)
-  const catchAllApi = (path: string) => new RegExp(`.*${path.replace(/\//g, '\\/')}$`);
+  const catchAllApi = (path: string) => [path, new RegExp(`.*${path.replace(/\//g, '\\/')}\\/?$`)];
 
   app.post(catchAllApi("/api/tool/launch"), (req, res) => proxyRequest(req, res, "/api/tool/launch"));
   app.post(catchAllApi("/api/tool/verify"), (req, res) => proxyRequest(req, res, "/api/tool/verify"));
