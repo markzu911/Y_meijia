@@ -123,3 +123,17 @@ export const saasCommit = async (params: {
   });
   return response.json();
 };
+
+export const saasGetImages = async (userId: string, role: number = 1): Promise<{ success: boolean; data: any[]; total: number }> => {
+  const response = await fetch(`/api/upload/image?userId=${userId}&role=${role}`);
+  return response.json();
+};
+
+export const saasDeleteImage = async (id: string, userId: string, role: number = 1): Promise<{ success: boolean }> => {
+  const response = await fetch('/api/upload/image', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, userId, role }),
+  });
+  return response.json();
+};

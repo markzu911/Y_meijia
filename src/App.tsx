@@ -268,19 +268,17 @@ function SmartRecTab() {
       const { base64, mimeType } = await fileToBase64(handImage.file);
       const styleDescription = STYLE_PROMPTS[selectedStyle] || `Apply ${selectedStyle} style nails`;
       const prompt = `Strictly generate the nails with the following exact specifications: ${styleDescription}. The result MUST perfectly match this description.`;
-      const result = await generateNailTryOn(base64, mimeType, prompt);
+      const result = await generateNailTryOn(base64, mimeType, prompt, undefined, undefined, saas.userId, saas.toolId);
       
       if (resultImage) {
         setHistory(prev => [resultImage, ...prev]);
       }
       setResultImage(result);
 
-      // Integral Consume
+      // Integral Consume is now handled on backend (Rule 8-3)
       if (saas.userId && saas.toolId) {
-        const consume = await saasConsume(saas.userId, saas.toolId);
-        if (consume.success) {
-          saas.setIntegral(consume.data.currentIntegral);
-        }
+        // We still refresh integral locally to show the change
+        setTimeout(() => saas.refreshIntegral(saas.userId, saas.toolId), 1000);
       }
     } catch (error) {
       console.error(error);
@@ -511,19 +509,17 @@ function CustomTab() {
       const analysis = await analyzeNailReference(refBase64, refMimeType);
       const detailedPrompt = `Nail Shape & Length: ${analysis.length}. Base Color: ${analysis.color}. Material/Texture: ${analysis.material}. 3D Decorations & Patterns: ${analysis.details}.`;
       
-      const result = await generateNailTryOn(base64, mimeType, detailedPrompt, refBase64, refMimeType);
+      const result = await generateNailTryOn(base64, mimeType, detailedPrompt, refBase64, refMimeType, saas.userId, saas.toolId);
       
       if (resultImage) {
         setHistory(prev => [resultImage, ...prev]);
       }
       setResultImage(result);
 
-      // Integral Consume
+      // Integral Consume is now handled on backend (Rule 8-3)
       if (saas.userId && saas.toolId) {
-        const consume = await saasConsume(saas.userId, saas.toolId);
-        if (consume.success) {
-          saas.setIntegral(consume.data.currentIntegral);
-        }
+        // We still refresh integral locally to show the change
+        setTimeout(() => saas.refreshIntegral(saas.userId, saas.toolId), 1000);
       }
     } catch (error) {
       console.error(error);

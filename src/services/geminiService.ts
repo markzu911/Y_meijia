@@ -24,7 +24,9 @@ export const generateNailTryOn = async (
   handImageMimeType: string,
   prompt: string,
   referenceImageBase64?: string,
-  referenceImageMimeType?: string
+  referenceImageMimeType?: string,
+  userId?: string,
+  toolId?: string
 ) => {
   const response = await fetch('/api/generate-nail-try-on', {
     method: 'POST',
@@ -35,9 +37,12 @@ export const generateNailTryOn = async (
       prompt,
       referenceImageBase64,
       referenceImageMimeType,
+      userId,
+      toolId
     }),
   });
   if (!response.ok) throw new Error('Failed to generate image');
   const data = await response.json();
-  return data.result;
+  // Return either the direct result (base64) or the saas url if available
+  return data.saasImage?.url || data.result;
 };

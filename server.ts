@@ -37,56 +37,86 @@ async function startServer() {
 
   // SaaS Proxy Logic - Follows V4-3Step Doc
   const proxyRequest = async (req: any, res: any, targetPath: string) => {
-    // Document says: const targetUrl = `http://aibigtree.com${targetPath}`;
     const targetUrl = `http://aibigtree.com${targetPath}`;
     try {
       const response = await axios({
         method: req.method,
         url: targetUrl,
-        data: req.body,
+        data: req.method === 'GET' ? undefined : req.body,
+        params: req.method === 'GET' ? req.query : undefined,
         headers: { 'Content-Type': 'application/json' }
       });
       res.status(response.status).json(response.data);
     } catch (error: any) {
-      console.error(`SaaS Proxy Error (${targetUrl}):`, error.message);
-      res.status(500).json({ error: "代理转发失败" });
+      console.error(`SaaS Proxy Error (${targetUrl}):`, error.response?.data || error.message);
+      res.status(error.response?.status || 500).json(error.response?.data || { error: "代理转发失败" });
     }
   };
 
   // Support potential path prefixes from SaaS platform proxy (e.g. /ai-tool/{toolId}/api/...)
-  const catchAllApi = (path: string) => [path, new RegExp(`.*${path.replace(/\//g, '\\/')}\\/?$`)];
+  const registerApi = (method: 'get' | 'post' | 'delete', path: string, handler: any) => {
+    app[method](path, handler);
+    app[method](`*/${path.replace(/^\//, '')}`, handler);
+  };
 
-  app.post(catchAllApi("/api/tool/launch"), (req, res) => proxyRequest(req, res, "/api/tool/launch"));
-  app.post(catchAllApi("/api/tool/verify"), (req, res) => proxyRequest(req, res, "/api/tool/verify"));
-  app.post(catchAllApi("/api/tool/consume"), (req, res) => proxyRequest(req, res, "/api/tool/consume"));
-  app.post(catchAllApi("/api/upload/direct-token"), (req, res) => proxyRequest(req, res, "/api/upload/direct-token"));
-  app.post(catchAllApi("/api/upload/commit"), (req, res) => proxyRequest(req, res, "/api/upload/commit"));
+  registerApi('post', "/api/tool/launch", (req, res) => proxyRequest(req, res, "/api/tool/launch"));
+  registerApi('post', "/api/tool/verify", (req, res) => proxyRequest(req, res, "/api/tool/verify"));
+  registerApi('post', "/api/tool/consume", (req, res) => proxyRequest(req, res, "/api/tool/consume"));
+  registerApi('post', "/api/upload/direct-token", (req, res) => proxyRequest(req, res, "/api/upload/direct-token"));
+  registerApi('post', "/api/upload/commit", (req, res) => proxyRequest(req, res, "/api/upload/commit"));
+  registerApi('get', "/api/upload/image", (req, res) => proxyRequest(req, res, "/api/upload/image"));
+  registerApi('delete', "/api/upload/image", (req, res) => proxyRequest(req, res, "/api/upload/image"));
 
-  app.get(catchAllApi("/api/health-check"), async (req, res) => {
+  registerApi('get', "/api/health-check", async (req, res) => {
     try {
-      const saasRes = await axios.get("http://aibigtree.com/api/tool/launch", { 
-        timeout: 3000,
-        validateStatus: () => true
-      });
-      
-      res.json({ 
-        success: true, 
-        connected: true,
-        message: "SaaS 系统接口已连接"
-      });
+      // Test connectivity to SaaS
+      await axios.get("http://aibigtree.com/api/tool/launch", { timeout: 2000, validateStatus: () => true });
+      res.json({ success: true, connected: true, message: "SaaS 系统接口已连接" });
     } catch (e: any) {
-      res.json({ 
-        success: true, 
-        connected: false,
-        message: "SaaS 系统接口连接失败 (aibigtree.com)"
-      });
+      res.json({ success: true, connected: false, message: "SaaS 系统接口连接失败" });
     }
   });
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
+  // SaaS Backend Save Logic (Rule 8-3)
+  const saveResultToSaas = async (userId: string, toolId: string, base64Data: string, mimeType: string) => {
+    const SAAS_ORIGIN = "http://aibigtree.com";
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    try {
+      // 1. Consume
+      const consumeRes = await axios.post(`${SAAS_ORIGIN}/api/tool/consume`, { userId, toolId });
+      if (!consumeRes.data.success) throw new Error(consumeRes.data.message || "扣费失败");
+
+      // 2. Direct Token
+      const tokenRes = await axios.post(`${SAAS_ORIGIN}/api/upload/direct-token`, {
+        userId, toolId, source: 'result', mimeType, fileSize: imageBuffer.length
+      });
+      if (!tokenRes.data.success) throw new Error("获取上传地址失败");
+
+      const { uploadUrl, objectKey, headers } = tokenRes.data;
+
+      // 3. PUT to OSS
+      await axios.put(uploadUrl, imageBuffer, {
+        headers: { ...headers, 'Content-Length': imageBuffer.length }
+      });
+
+      // 4. Commit
+      const commitRes = await axios.post(`${SAAS_ORIGIN}/api/upload/commit`, {
+        userId, toolId, source: 'result', objectKey, fileSize: imageBuffer.length
+      });
+      if (!commitRes.data.success || !commitRes.data.savedToRecords) throw new Error("图片入库失败");
+
+      return commitRes.data.image;
+    } catch (error: any) {
+      console.error("SaaS Save Error:", error.response?.data || error.message);
+      return null;
+    }
+  };
+
   // API Routes
-  app.post(catchAllApi("/api/analyze-hand"), async (req, res) => {
+  registerApi('post', "/api/analyze-hand", async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
 
@@ -128,7 +158,7 @@ async function startServer() {
     }
   });
 
-  app.post(catchAllApi("/api/analyze-nail-reference"), async (req, res) => {
+  registerApi('post', "/api/analyze-nail-reference", async (req, res) => {
     try {
       const { base64, mimeType } = req.body;
 
@@ -170,9 +200,9 @@ async function startServer() {
     }
   });
 
-  app.post(catchAllApi("/api/generate-nail-try-on"), async (req, res) => {
+  registerApi('post', "/api/generate-nail-try-on", async (req, res) => {
     try {
-      const { handImageBase64, handImageMimeType, prompt, referenceImageBase64, referenceImageMimeType } = req.body;
+      const { handImageBase64, handImageMimeType, prompt, referenceImageBase64, referenceImageMimeType, userId, toolId } = req.body;
 
       const parts: any[] = [];
 
@@ -233,7 +263,14 @@ RULES:
       }
 
       if (resultImage) {
-        res.json({ result: resultImage });
+        let saasImage = null;
+        if (userId && toolId) {
+          // Rule 8-3: Save in backend
+          const base64Data = resultImage.split(',')[1];
+          const mimeType = resultImage.split(';')[0].split(':')[1];
+          saasImage = await saveResultToSaas(userId, toolId, base64Data, mimeType);
+        }
+        res.json({ result: resultImage, saasImage });
       } else {
         throw new Error("Failed to generate image");
       }
