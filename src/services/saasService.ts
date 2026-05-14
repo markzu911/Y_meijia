@@ -28,26 +28,42 @@ export interface VerifyResponse {
 
 export interface ConsumeResponse {
   success: boolean;
+  message?: string;
   data: {
     currentIntegral: number;
     consumedIntegral: number;
+    toolId?: string;
   };
 }
 
-async function readJsonResponse(res: Response) {
-  const text = await res.text();
-  let data: any = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = { error: text.slice(0, 300) };
-  }
+export interface DirectTokenResponse {
+  success: boolean;
+  uploadUrl: string;
+  objectKey: string;
+  headers: Record<string, string>;
+  method?: string;
+  fileName?: string;
+  ossUploadUrl?: string;
+  uploadStrategy?: string;
+  commitUrl?: string;
+  expiresIn?: number;
+  publicUrl?: string;
+  readUrl?: string;
+  [key: string]: any;
+}
 
-  if (!res.ok || data.success === false) {
-    throw new Error(data.error || data.message || `请求失败: ${res.status}`);
-  }
-
-  return data;
+export interface CommitResponse {
+  success: boolean;
+  savedToRecords: boolean;
+  recordId: string;
+  url: string;
+  image?: {
+    recordId: string;
+    url: string;
+    fileName: string;
+    savedToRecords: boolean;
+  };
+  [key: string]: any;
 }
 
 export const saasLaunch = async (userId: string, toolId: string): Promise<LaunchResponse> => {
@@ -56,7 +72,7 @@ export const saasLaunch = async (userId: string, toolId: string): Promise<Launch
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, toolId }),
   });
-  return readJsonResponse(response);
+  return response.json();
 };
 
 export const saasVerify = async (userId: string, toolId: string): Promise<VerifyResponse> => {
@@ -65,7 +81,7 @@ export const saasVerify = async (userId: string, toolId: string): Promise<Verify
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, toolId }),
   });
-  return readJsonResponse(response);
+  return response.json();
 };
 
 export const saasConsume = async (userId: string, toolId: string): Promise<ConsumeResponse> => {
@@ -74,52 +90,36 @@ export const saasConsume = async (userId: string, toolId: string): Promise<Consu
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, toolId }),
   });
-  return readJsonResponse(response);
+  return response.json();
 };
 
-export const saasUploadImage = async (params: {
+export const saasDirectToken = async (params: {
   userId: string;
-  base64?: string;
-  source?: 'result' | 'input';
-}) => {
-  const response = await fetch('/api/upload/image', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...params, source: params.source || 'result' }),
-  });
-  return readJsonResponse(response);
-};
-
-export const saasGetUploadToken = async (params: {
-  userId: string;
-  source: 'input' | 'result';
-  fileName: string;
+  toolId: string;
+  source: 'result';
   mimeType: string;
+  fileName?: string;
   fileSize: number;
-}) => {
+}): Promise<DirectTokenResponse> => {
   const response = await fetch('/api/upload/direct-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  return readJsonResponse(response);
+  return response.json();
 };
 
-export const saasCommitImage = async (params: {
+export const saasCommit = async (params: {
   userId: string;
+  toolId: string;
   source: 'result';
   objectKey: string;
   fileSize: number;
-}) => {
+}): Promise<CommitResponse> => {
   const response = await fetch('/api/upload/commit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  return readJsonResponse(response);
-};
-
-export const saasFileList = async (userId: string, role: number = 1) => {
-  const response = await fetch(`/api/upload/image?userId=${userId}&role=${role}`);
-  return readJsonResponse(response);
+  return response.json();
 };

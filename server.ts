@@ -59,11 +59,6 @@ async function startServer() {
   app.post(catchAllApi("/api/tool/launch"), (req, res) => proxyRequest(req, res, "/api/tool/launch"));
   app.post(catchAllApi("/api/tool/verify"), (req, res) => proxyRequest(req, res, "/api/tool/verify"));
   app.post(catchAllApi("/api/tool/consume"), (req, res) => proxyRequest(req, res, "/api/tool/consume"));
-
-  // Image Management Proxy Routes
-  app.post(catchAllApi("/api/upload/image"), (req, res) => proxyRequest(req, res, "/api/upload/image"));
-  app.get(catchAllApi("/api/upload/image"), (req, res) => proxyRequest(req, res, "/api/upload/image"));
-  app.delete(catchAllApi("/api/upload/image"), (req, res) => proxyRequest(req, res, "/api/upload/image"));
   app.post(catchAllApi("/api/upload/direct-token"), (req, res) => proxyRequest(req, res, "/api/upload/direct-token"));
   app.post(catchAllApi("/api/upload/commit"), (req, res) => proxyRequest(req, res, "/api/upload/commit"));
 

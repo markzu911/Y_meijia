@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Download, Coins, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
-import { saasLaunch, saasVerify, saasConsume, saasUploadImage } from './services/saasService';
+import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
 import { fileToBase64, compressImage } from './lib/utils';
 
 const SaasContext = createContext<{
@@ -275,21 +275,11 @@ function SmartRecTab() {
       }
       setResultImage(result);
 
-      // Integral Consume & Result Persistence
+      // Integral Consume
       if (saas.userId && saas.toolId) {
         const consume = await saasConsume(saas.userId, saas.toolId);
         if (consume.success) {
           saas.setIntegral(consume.data.currentIntegral);
-          // Upload result image to SaaS records (Mine Images)
-          try {
-            await saasUploadImage({
-              userId: saas.userId,
-              base64: result,
-              source: 'result'
-            });
-          } catch (uploadError) {
-            console.error('Failed to sync result image to SaaS:', uploadError);
-          }
         }
       }
     } catch (error) {
@@ -528,21 +518,11 @@ function CustomTab() {
       }
       setResultImage(result);
 
-      // Integral Consume & Result Persistence
+      // Integral Consume
       if (saas.userId && saas.toolId) {
         const consume = await saasConsume(saas.userId, saas.toolId);
         if (consume.success) {
           saas.setIntegral(consume.data.currentIntegral);
-          // Upload result image to SaaS records (Mine Images)
-          try {
-            await saasUploadImage({
-              userId: saas.userId,
-              base64: result,
-              source: 'result'
-            });
-          } catch (uploadError) {
-            console.error('Failed to sync result image to SaaS:', uploadError);
-          }
         }
       }
     } catch (error) {
