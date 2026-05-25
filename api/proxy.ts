@@ -2,7 +2,14 @@ import { GoogleGenAI, Type, GenerateVideosOperation } from "@google/genai";
 import axios from "axios";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || '',
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build'
+    }
+  }
+});
 
 const SAAS_ORIGIN = "http://aibigtree.com";
 
@@ -193,12 +200,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const { imageBase64, prompt } = req.body;
       let cleanBase64 = imageBase64;
+      let resolvedMimeType = 'image/png';
       
       if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
         const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
+        const contentType = imgRes.headers['content-type'];
+        if (contentType && typeof contentType === 'string') {
+          resolvedMimeType = contentType;
+        }
         cleanBase64 = Buffer.from(imgRes.data).toString('base64');
       } else if (imageBase64.includes(',')) {
-        cleanBase64 = imageBase64.split(',')[1];
+        const parts = imageBase64.split(',');
+        const mimeMatch = parts[0].match(/data:(.*?);/);
+        if (mimeMatch) {
+          resolvedMimeType = mimeMatch[1];
+        }
+        cleanBase64 = parts[1];
+      } else {
+        if (cleanBase64.startsWith('/9j/')) {
+          resolvedMimeType = 'image/jpeg';
+        } else if (cleanBase64.startsWith('UklGR')) {
+          resolvedMimeType = 'image/webp';
+        }
       }
 
       const operation = await ai.models.generateVideos({
@@ -206,7 +229,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         prompt: prompt || 'An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its custom manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.',
         image: {
           imageBytes: cleanBase64,
-          mimeType: 'image/png',
+          mimeType: resolvedMimeType,
         },
         config: {
           numberOfVideos: 1,
