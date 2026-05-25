@@ -1,10 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Camera, Sparkles, Wand2, Upload, Image as ImageIcon, Loader2, History, Download, Coins, Wifi, WifiOff, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
+import { analyzeHand, analyzeNailReference, generateNailTryOn, generateVideoStart, checkVideoStatus, downloadVideoUrl } from './services/geminiService';
 import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
 import { fileToBase64, compressImage } from './lib/utils';
-import VideoGenerator from './components/VideoGenerator';
 
 const SaasContext = createContext<{
   userId: string;
@@ -198,6 +197,13 @@ function SmartRecTab() {
   const [history, setHistory] = useState<string[]>([]);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
+  // Video generation states
+  const [displayMode, setDisplayMode] = useState<'image' | 'video'>('image');
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoStep, setVideoStep] = useState<string>('');
+  const [videoError, setVideoError] = useState<string | null>(null);
+
   const handleAnalyze = async () => {
     if (!handImage) return;
 
@@ -215,6 +221,53 @@ function SmartRecTab() {
     }
   };
 
+  const triggerVideoGeneration = async (imageBase64: string, styleDetails: string) => {
+    setVideoLoading(true);
+    setVideoError(null);
+    setVideoStep('✨ 正在融合您的试戴款式...');
+    
+    try {
+      setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
+      const videoPrompt = `A high-quality smooth video of a beautiful, clean hand elegantly exhibiting custom professional nail art on fingernails. The hand shape and skin tone are identical to the starting image. The hand is slowly rotating, flipping back and forth (showing palm then turning to show the back of the hand), showcasing the nail material, color shine, and fine details. The fingers bend and move gracefully. Photorealistic, 4k detail, elegant hand movements, clean studio lighting.`;
+      
+      const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
+      
+      let attempts = 0;
+      const maxAttempts = 120; // 10 mins limit
+      const messages = [
+        "✨ 正在融合您的试戴款式和底图...",
+        "✍️ Gemini Veo 正在精确塑形手部的翻转姿态结构...",
+        "💅 正在雕琢指尖美甲的立体反光和 3D 设计细节...",
+        "🎨 正在智能模拟指套折射及细腻的手部屈伸动作...",
+        "🎬 正在渲染高精度的光影追光，并拼合并优化视频...",
+        "🏁 视频即将就绪，正在封装至播放器..."
+      ];
+      
+      while (attempts < maxAttempts) {
+        attempts++;
+        const msgIndex = Math.min(Math.floor(attempts / 8), messages.length - 1);
+        setVideoStep(`${messages[msgIndex]} (第 ${attempts * 5} 秒 / 预计 1 分钟)`);
+        
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const { done } = await checkVideoStatus(operationName);
+        if (done) {
+          break;
+        }
+      }
+      
+      setVideoStep('🎬 视频渲染完毕，正在下载与加载播放器...');
+      const videoBlobUrl = await downloadVideoUrl(operationName);
+      setVideoUrl(videoBlobUrl);
+      setDisplayMode('video'); // Auto switch to video tab
+    } catch (e: any) {
+      console.error('Video generation failed:', e);
+      setVideoError(e.message || '视频生成遇到了些问题，请重试');
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!handImage || !selectedStyle) return;
 
@@ -228,6 +281,10 @@ function SmartRecTab() {
     }
 
     setIsGenerating(true);
+    setVideoUrl(null);
+    setVideoError(null);
+    setDisplayMode('image');
+
     try {
       const { base64, mimeType } = await fileToBase64(handImage.file);
       const styleDescription = STYLE_PROMPTS[selectedStyle] || `Apply ${selectedStyle} style nails`;
@@ -244,6 +301,9 @@ function SmartRecTab() {
         // We still refresh integral locally to show the change
         setTimeout(() => saas.refreshIntegral(saas.userId, saas.toolId), 1000);
       }
+
+      // Synchronously trigger video generation in the background
+      triggerVideoGeneration(result, styleDescription);
     } catch (error) {
       console.error(error);
       alert("生成图片失败。");
@@ -266,6 +326,8 @@ function SmartRecTab() {
                   setHandImage({ url: URL.createObjectURL(compressed), file: compressed });
                   setAnalysis(null);
                   setResultImage(null);
+                  setVideoUrl(null);
+                  setVideoError(null);
                   setHistory([]);
                 } catch (e) {
                   console.error('Compression failed', e);
@@ -342,32 +404,128 @@ function SmartRecTab() {
           )}
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px]">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-start min-h-[400px] sm:min-h-[500px]">
           {resultImage ? (
             <div className="w-full h-full flex flex-col items-center gap-4">
-              <h3 className="font-medium text-[#968F85] w-full text-center">虚拟试戴效果</h3>
-              <div className="relative group w-full max-w-sm aspect-[3/4]">
-                <img 
-                  src={resultImage} 
-                  alt="Result" 
-                  className="w-full h-full rounded-2xl shadow-md object-cover cursor-pointer" 
-                  onClick={() => setEnlargedImage(resultImage)}
-                />
-                <button 
-                  onClick={(e) => { e.stopPropagation(); downloadSingleImage(resultImage); }}
-                  className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                  title="下载当前图片"
+              <div className="flex bg-[#F2EFE9] p-1 rounded-lg w-full max-w-sm mb-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('image')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                    displayMode === 'image' ? 'bg-white shadow-xs text-[#7A5B45]' : 'text-[#968F85] hover:text-[#696158]'
+                  }`}
                 >
-                  <Download size={18} />
+                  <ImageIcon size={14} />
+                  试戴效果图
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('video')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 relative ${
+                    displayMode === 'video' ? 'bg-white shadow-xs text-[#7A5B45]' : 'text-[#968F85] hover:text-[#696158]'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles size={14} className={videoLoading ? "animate-spin text-[#9C7A63]" : "text-amber-500"} />
+                    3D 试戴视频
+                  </span>
+                  {videoLoading && (
+                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                  )}
                 </button>
               </div>
-              
-              <div className="w-full max-w-sm">
-                <VideoGenerator imageSrc={resultImage} />
-              </div>
+
+              {displayMode === 'image' ? (
+                <div className="w-full flex flex-col items-center gap-4">
+                  <h3 className="font-medium text-[#968F85] w-full text-center text-sm">虚拟试戴效果</h3>
+                  <div className="relative group w-full max-w-sm aspect-[3/4]">
+                    <img 
+                      src={resultImage} 
+                      alt="Result" 
+                      className="w-full h-full rounded-2xl shadow-md object-cover cursor-pointer" 
+                      onClick={() => setEnlargedImage(resultImage)}
+                    />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); downloadSingleImage(resultImage); }}
+                      className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      title="下载当前图片"
+                    >
+                      <Download size={18} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center min-h-[300px]">
+                  {videoLoading ? (
+                    <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] max-w-sm w-full shadow-xs flex flex-col items-center gap-4 animate-fade-in">
+                      <div className="relative">
+                        <Loader2 className="animate-spin text-[#9C7A63]" size={36} />
+                        <Sparkles className="absolute -top-1 -right-1 text-amber-500 animate-pulse" size={16} />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="font-semibold text-sm text-[#4A443D]">{videoStep}</p>
+                        <p className="text-[11px] text-[#968F85] leading-relaxed">
+                          Gemini Veo 视频模型正在深度解析您的试戴美甲，为您生成精美的 3D 手部动作视频。由于 3D 渲染高精细指部动作（旋转、翻转及细节对齐），通常预计仅需要 1-2 分钟，请您耐心等候，精美艺术值得等待 ✨
+                        </p>
+                      </div>
+                    </div>
+                  ) : videoError ? (
+                    <div className="text-center p-6 bg-red-50/50 rounded-2xl border border-red-100 max-w-sm w-full flex flex-col items-center gap-3">
+                      <AlertCircle className="text-red-500" size={32} />
+                      <p className="text-xs font-semibold text-red-700">{videoError}</p>
+                      <button
+                        onClick={() => triggerVideoGeneration(resultImage!, STYLE_PROMPTS[selectedStyle] || selectedStyle)}
+                        className="px-4 py-2 bg-[#9C7A63] text-white rounded-xl text-xs font-semibold hover:bg-[#856550] transition-colors"
+                      >
+                        重新生成视频
+                      </button>
+                    </div>
+                  ) : videoUrl ? (
+                    <div className="w-full flex flex-col items-center gap-4">
+                      <h3 className="font-medium text-[#968F85] w-full text-center text-sm flex items-center justify-center gap-1">
+                        <Sparkles size={14} className="text-amber-500" />
+                        Veo 3D 手部旋转展示视频
+                      </h3>
+                      <div className="relative group w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-md bg-stone-900 border border-stone-200">
+                        <video
+                          src={videoUrl}
+                          className="w-full h-full object-cover"
+                          controls
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); downloadSingleImage(videoUrl, `nail-video-${Date.now()}.mp4`); }}
+                          className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                          title="下载视频"
+                        >
+                          <Download size={18} />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => downloadSingleImage(videoUrl!, `nail-video-${Date.now()}.mp4`)}
+                        className="w-full py-2.5 max-w-sm bg-stone-100 text-stone-700 font-medium rounded-xl border border-stone-200 text-xs flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors cursor-pointer"
+                      >
+                        <Download size={14} />
+                        保存 3D 试戴视频 (MP4格式)
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] max-w-sm w-full flex flex-col items-center gap-3">
+                      <Loader2 className="animate-spin text-[#9C7A63]" size={36} />
+                      <p className="text-xs text-[#696158]">正在获取视频生成信息...</p>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {history.length > 0 && (
-                <div className="w-full mt-4 pt-4 border-t border-neutral-100">
+                <div className="w-full mt-4 pt-4 border-t border-neutral-100 shrink-0">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs font-medium text-[#B0A9A0] flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
                     <button 
@@ -404,7 +562,7 @@ function SmartRecTab() {
               <div className="w-16 h-16 bg-[#FAF8F5] rounded-full flex items-center justify-center">
                 <ImageIcon size={32} className="text-neutral-300" />
               </div>
-              <p>生成的试戴效果将显示在这里</p>
+              <p>生成的试戴效果和 3D 视频将显示在这里</p>
             </div>
           )}
         </div>
@@ -456,6 +614,60 @@ function CustomTab() {
   const [history, setHistory] = useState<string[]>([]);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
 
+  // Video generation states
+  const [displayMode, setDisplayMode] = useState<'image' | 'video'>('image');
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoStep, setVideoStep] = useState<string>('');
+  const [videoError, setVideoError] = useState<string | null>(null);
+
+  const triggerVideoGeneration = async (imageBase64: string, styleDetails: string) => {
+    setVideoLoading(true);
+    setVideoError(null);
+    setVideoStep('✨ 正在融合您的自定义试戴款式...');
+    
+    try {
+      setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
+      const videoPrompt = `A high-quality smooth video of a beautiful, clean hand elegantly exhibiting custom professional nail art on fingernails. The hand shape and skin tone are identical to the starting image. The hand is slowly rotating, flipping back and forth (showing palm then turning to show the back of the hand), showcasing the nail material, color shine, and fine details. The fingers bend and move gracefully. Photorealistic, 4k detail, elegant hand movements, clean studio lighting.`;
+      
+      const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
+      
+      let attempts = 0;
+      const maxAttempts = 120; // 10 mins limit
+      const messages = [
+        "✨ 正在融合您的个性化款式与底图...",
+        "✍️ Gemini Veo 正在精确塑形手部的翻转姿态结构...",
+        "💅 正在雕琢指尖美甲的立体反光和 3D 设计细节...",
+        "🎨 正在智能模拟指套折射及细腻的手部屈伸动作...",
+        "🎬 正在渲染高精度的光影追光，并拼合并优化视频...",
+        "🏁 视频即将就绪，正在封装至播放器..."
+      ];
+      
+      while (attempts < maxAttempts) {
+        attempts++;
+        const msgIndex = Math.min(Math.floor(attempts / 8), messages.length - 1);
+        setVideoStep(`${messages[msgIndex]} (第 ${attempts * 5} 秒 / 预计 1 分钟)`);
+        
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const { done } = await checkVideoStatus(operationName);
+        if (done) {
+          break;
+        }
+      }
+      
+      setVideoStep('🎬 视频渲染完毕，正在下载与加载播放器...');
+      const videoBlobUrl = await downloadVideoUrl(operationName);
+      setVideoUrl(videoBlobUrl);
+      setDisplayMode('video'); // Auto switch to video tab
+    } catch (e: any) {
+      console.error('Video generation failed:', e);
+      setVideoError(e.message || '视频生成遇到了些问题，请重试');
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!handImage || !nailImage) return;
 
@@ -469,6 +681,10 @@ function CustomTab() {
     }
 
     setIsGenerating(true);
+    setVideoUrl(null);
+    setVideoError(null);
+    setDisplayMode('image');
+
     try {
       const { base64, mimeType } = await fileToBase64(handImage.file);
       const { base64: refBase64, mimeType: refMimeType } = await fileToBase64(nailImage.file);
@@ -489,6 +705,9 @@ function CustomTab() {
         // We still refresh integral locally to show the change
         setTimeout(() => saas.refreshIntegral(saas.userId, saas.toolId), 1000);
       }
+
+      // Synchronously trigger video generation in the background
+      triggerVideoGeneration(result, detailedPrompt);
     } catch (error) {
       console.error(error);
       alert("生成图片失败。");
@@ -514,6 +733,8 @@ function CustomTab() {
                     setHandImage({ url: URL.createObjectURL(file), file });
                   }
                   setResultImage(null);
+                  setVideoUrl(null);
+                  setVideoError(null);
                   setHistory([]);
                 }} 
                 label="上传手部照片"
@@ -545,32 +766,128 @@ function CustomTab() {
           </button>
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-center min-h-[400px] sm:min-h-[500px]">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#EAE6DF] shadow-sm flex flex-col items-center justify-start min-h-[400px] sm:min-h-[500px]">
           {resultImage ? (
             <div className="w-full h-full flex flex-col items-center gap-4">
-              <h3 className="font-medium text-[#968F85] w-full text-center">虚拟试戴效果</h3>
-              <div className="relative group w-full max-w-sm aspect-[3/4]">
-                <img 
-                  src={resultImage} 
-                  alt="Result" 
-                  className="w-full h-full rounded-2xl shadow-md object-cover cursor-pointer" 
-                  onClick={() => setEnlargedImage(resultImage)}
-                />
-                <button 
-                  onClick={(e) => { e.stopPropagation(); downloadSingleImage(resultImage); }}
-                  className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                  title="下载当前图片"
+              <div className="flex bg-[#F2EFE9] p-1 rounded-lg w-full max-w-sm mb-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('image')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                    displayMode === 'image' ? 'bg-white shadow-xs text-[#7A5B45]' : 'text-[#968F85] hover:text-[#696158]'
+                  }`}
                 >
-                  <Download size={18} />
+                  <ImageIcon size={14} />
+                  试戴效果图
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDisplayMode('video')}
+                  className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 relative ${
+                    displayMode === 'video' ? 'bg-white shadow-xs text-[#7A5B45]' : 'text-[#968F85] hover:text-[#696158]'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles size={14} className={videoLoading ? "animate-spin text-[#9C7A63]" : "text-amber-500"} />
+                    3D 试戴视频
+                  </span>
+                  {videoLoading && (
+                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                  )}
                 </button>
               </div>
-              
-              <div className="w-full max-w-sm">
-                <VideoGenerator imageSrc={resultImage} />
-              </div>
+
+              {displayMode === 'image' ? (
+                <div className="w-full flex flex-col items-center gap-4">
+                  <h3 className="font-medium text-[#968F85] w-full text-center text-sm">虚拟试戴效果</h3>
+                  <div className="relative group w-full max-w-sm aspect-[3/4]">
+                    <img 
+                      src={resultImage} 
+                      alt="Result" 
+                      className="w-full h-full rounded-2xl shadow-md object-cover cursor-pointer" 
+                      onClick={() => setEnlargedImage(resultImage)}
+                    />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); downloadSingleImage(resultImage); }}
+                      className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                      title="下载当前图片"
+                    >
+                      <Download size={18} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center min-h-[300px]">
+                  {videoLoading ? (
+                    <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] max-w-sm w-full shadow-xs flex flex-col items-center gap-4 animate-fade-in">
+                      <div className="relative">
+                        <Loader2 className="animate-spin text-[#9C7A63]" size={36} />
+                        <Sparkles className="absolute -top-1 -right-1 text-amber-500 animate-pulse" size={16} />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="font-semibold text-sm text-[#4A443D]">{videoStep}</p>
+                        <p className="text-[11px] text-[#968F85] leading-relaxed">
+                          Gemini Veo 视频模型正在深度解析您的试戴美甲，为您生成精美的 3D 手部动作视频。由于 3D 渲染高精细指部动作（旋转、翻转及细节对齐），通常预计仅需要 1-2 分钟，请您耐心等候，精美艺术值得等待 ✨
+                        </p>
+                      </div>
+                    </div>
+                  ) : videoError ? (
+                    <div className="text-center p-6 bg-red-50/50 rounded-2xl border border-red-100 max-w-sm w-full flex flex-col items-center gap-3">
+                      <AlertCircle className="text-red-500" size={32} />
+                      <p className="text-xs font-semibold text-red-700">{videoError}</p>
+                      <button
+                        onClick={() => triggerVideoGeneration(resultImage!, 'Custom Reference Nail Design')}
+                        className="px-4 py-2 bg-[#9C7A63] text-white rounded-xl text-xs font-semibold hover:bg-[#856550] transition-colors"
+                      >
+                        重新生成视频
+                      </button>
+                    </div>
+                  ) : videoUrl ? (
+                    <div className="w-full flex flex-col items-center gap-4">
+                      <h3 className="font-medium text-[#968F85] w-full text-center text-sm flex items-center justify-center gap-1">
+                        <Sparkles size={14} className="text-amber-500" />
+                        Veo 3D 手部旋转展示视频
+                      </h3>
+                      <div className="relative group w-full max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-md bg-stone-900 border border-stone-200">
+                        <video
+                          src={videoUrl}
+                          className="w-full h-full object-cover"
+                          controls
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); downloadSingleImage(videoUrl, `nail-video-${Date.now()}.mp4`); }}
+                          className="absolute top-3 right-3 bg-white/90 text-[#696158] hover:text-[#7A5B45] p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                          title="下载视频"
+                        >
+                          <Download size={18} />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => downloadSingleImage(videoUrl!, `nail-video-${Date.now()}.mp4`)}
+                        className="w-full py-2.5 max-w-sm bg-stone-100 text-stone-700 font-medium rounded-xl border border-stone-200 text-xs flex items-center justify-center gap-2 hover:bg-stone-200 transition-colors cursor-pointer"
+                      >
+                        <Download size={14} />
+                        保存 3D 试戴视频 (MP4格式)
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] max-w-sm w-full flex flex-col items-center gap-3">
+                      <Loader2 className="animate-spin text-[#9C7A63]" size={36} />
+                      <p className="text-xs text-[#696158]">正在获取视频生成信息...</p>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {history.length > 0 && (
-                <div className="w-full mt-4 pt-4 border-t border-neutral-100">
+                <div className="w-full mt-4 pt-4 border-t border-neutral-100 shrink-0">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs font-medium text-[#B0A9A0] flex items-center gap-1"><History size={14} /> 历史记录 (点击放大)</h4>
                     <button 
@@ -607,7 +924,7 @@ function CustomTab() {
               <div className="w-16 h-16 bg-[#FAF8F5] rounded-full flex items-center justify-center">
                 <ImageIcon size={32} className="text-neutral-300" />
               </div>
-              <p>上传图片后点击生成</p>
+              <p>上传图片及参考后点击生成，3D 视频将同步启动</p>
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import axios from 'axios';
-import { GoogleGenAI, Type, GenerateVideosOperation } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config({ override: true });
 
@@ -268,22 +268,25 @@ RULES:
     }
   });
 
-  registerApi('post', "/api/video/generate", async (req, res) => {
+  registerApi('post', "/api/generate-video", async (req, res) => {
     try {
-      const { imageBase64, mimeType } = req.body;
-      if (!imageBase64) {
-        return res.status(400).json({ error: "Missing imageBase64" });
+      const { imageBase64, prompt } = req.body;
+      let cleanBase64 = imageBase64;
+      
+      if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+        // Fetch the image from URL and convert to Base64
+        const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
+        cleanBase64 = Buffer.from(imgRes.data).toString('base64');
+      } else if (imageBase64.includes(',')) {
+        cleanBase64 = imageBase64.split(',')[1];
       }
-
-      const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-      const cleanMimeType = mimeType || (imageBase64.includes(';') ? imageBase64.split(';')[0].split(':')[1] : 'image/png');
 
       const operation = await ai.models.generateVideos({
         model: 'veo-3.1-lite-generate-preview',
-        prompt: 'A hand slowly turning over in professional studio salon lighting, gracefully flipping to reveal and showcase the detailed fingernails with high fidelity design. Keep the nail designs completely accurate and consistent.',
+        prompt: prompt || 'A high-quality close-up video of the hand showing off these beautiful fingernails. The hand is slowly rotating and flipping, showing the palm and back of the hand. Elegant finger movements are displayed. The background and lighting are fully consistent with the starting image. Cinematic and slow motion.',
         image: {
           imageBytes: cleanBase64,
-          mimeType: cleanMimeType,
+          mimeType: 'image/png',
         },
         config: {
           numberOfVideos: 1,
@@ -299,61 +302,39 @@ RULES:
     }
   });
 
-  registerApi('post', "/api/video/status", async (req, res) => {
+  registerApi('post', "/api/video-status", async (req, res) => {
     try {
       const { operationName } = req.body;
-      if (!operationName) {
-        return res.status(400).json({ error: "Missing operationName" });
-      }
-
-      const op = new GenerateVideosOperation();
-      op.name = operationName;
+      const op = { name: operationName } as any;
       const updated = await ai.operations.getVideosOperation({ operation: op });
       res.json({ done: updated.done });
     } catch (error: any) {
-      console.error('Error checking video status:', error);
+      console.error('Error fetching video status:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  registerApi('post', "/api/video/download", async (req, res) => {
+  registerApi('post', "/api/video-download", async (req, res) => {
     try {
       const { operationName } = req.body;
-      if (!operationName) {
-        return res.status(400).json({ error: "Missing operationName" });
-      }
-
-      const op = new GenerateVideosOperation();
-      op.name = operationName;
+      const op = { name: operationName } as any;
       const updated = await ai.operations.getVideosOperation({ operation: op });
-      
       const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+
       if (!uri) {
-        return res.status(404).json({ error: "Video URI not found in operation response" });
+        throw new Error("Video download URI not found in completed operation");
       }
 
       const apiKey = process.env.GEMINI_API_KEY || '';
-      const videoRes = await fetch(uri, {
+      const videoRes = await axios.get(uri, {
         headers: { 'x-goog-api-key': apiKey },
+        responseType: 'arraybuffer'
       });
 
       res.setHeader('Content-Type', 'video/mp4');
-
-      if (videoRes.body) {
-        const reader = videoRes.body.getReader();
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            res.end();
-            break;
-          }
-          res.write(Buffer.from(value));
-        }
-      } else {
-        res.status(500).json({ error: "No video body in source stream" });
-      }
+      res.send(Buffer.from(videoRes.data));
     } catch (error: any) {
-      console.error('Error streaming video:', error);
+      console.error('Error downloading video:', error);
       res.status(500).json({ error: error.message });
     }
   });

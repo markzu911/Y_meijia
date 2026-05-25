@@ -46,3 +46,34 @@ export const generateNailTryOn = async (
   // Return either the direct result (base64) or the saas url if available
   return data.saasImage?.url || data.result;
 };
+
+export const generateVideoStart = async (imageBase64: string, prompt?: string) => {
+  const response = await fetch('/api/generate-video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageBase64, prompt }),
+  });
+  if (!response.ok) throw new Error('Failed to start video generation');
+  return response.json(); // { operationName }
+};
+
+export const checkVideoStatus = async (operationName: string) => {
+  const response = await fetch('/api/video-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationName }),
+  });
+  if (!response.ok) throw new Error('Failed to check video status');
+  return response.json(); // { done }
+};
+
+export const downloadVideoUrl = async (operationName: string) => {
+  const response = await fetch('/api/video-download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operationName }),
+  });
+  if (!response.ok) throw new Error('Failed to download video');
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+};
