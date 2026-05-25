@@ -189,5 +189,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
+  if (path.endsWith("/api/generate-video")) {
+    try {
+      const { imageBase64, prompt } = req.body;
+      let cleanBase64 = imageBase64;
+      
+      if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+        const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
+        cleanBase64 = Buffer.from(imgRes.data).toString('base64');
+      } else if (imageBase64.includes(',')) {
+        cleanBase64 = imageBase64.split(',')[1];
+      }
+
+      const operation = await ai.models.generateVideos({
+        model: 'veo-3.1-lite-generate-preview',
+        prompt: prompt || 'A high-quality close-up video of the hand showing off these beautiful fingernails. The hand is slowly rotating and flipping, showing the palm and back of the hand. Elegant finger movements are displayed. The background and lighting are fully consistent with the starting image. Cinematic and slow motion.',
+        image: {
+          imageBytes: cleanBase64,
+          mimeType: 'image/png',
+        },
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p',
+          aspectRatio: '9:16'
+        }
+      });
+
+      return res.status(200).json({ operationName: operation.name });
+    } catch (e: any) {
+      console.error('Error starting video generation:', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (path.endsWith("/api/video-status")) {
+    try {
+      const { operationName } = req.body;
+      const op = { name: operationName } as any;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      return res.status(200).json({ done: updated.done });
+    } catch (e: any) {
+      console.error('Error fetching video status:', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  if (path.endsWith("/api/video-download")) {
+    try {
+      const { operationName } = req.body;
+      const op = { name: operationName } as any;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+
+      if (!uri) {
+        throw new Error("Video download URI not found in completed operation");
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY || '';
+      const videoRes = await axios.get(uri, {
+        headers: { 'x-goog-api-key': apiKey },
+        responseType: 'arraybuffer'
+      });
+
+      res.setHeader('Content-Type', 'video/mp4');
+      return res.status(200).send(Buffer.from(videoRes.data));
+    } catch (e: any) {
+      console.error('Error downloading video:', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   return res.status(404).json({ error: "Route not found", path });
 }
