@@ -228,7 +228,7 @@ function SmartRecTab() {
     
     try {
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
-      const videoPrompt = `A high-quality smooth video of a beautiful, clean hand elegantly exhibiting custom professional nail art on fingernails. The hand shape and skin tone are identical to the starting image. The hand is slowly rotating, flipping back and forth (showing palm then turning to show the back of the hand), showcasing the nail material, color shine, and fine details. The fingers bend and move gracefully. Photorealistic, 4k detail, elegant hand movements, clean studio lighting.`;
+      const videoPrompt = `A continuous, ultra-high-quality close-up video of a single elegant hand showcasing its manicure. Starting from the hand showing the beautiful back of the fingers (with nails facing the camera), the wrist and hand slowly, smoothly, and continuously rotate over in a single unbroken 3D physical movement to fully flip the hand and show the palm, then smoothly turn back to show the nails again. The rotation is a gradual, step-by-step 180-degree roll showing the side profile of fingers turning in mid-air. There are absolutely no sudden jumps, frame cuts, or morphing between the back of the hand and the palm. The fingers bend gracefully in slow motion. Consistent hand shape, skin tone, clear studio lighting.`;
       
       const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
       
@@ -628,7 +628,7 @@ function CustomTab() {
     
     try {
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
-      const videoPrompt = `A high-quality smooth video of a beautiful, clean hand elegantly exhibiting custom professional nail art on fingernails. The hand shape and skin tone are identical to the starting image. The hand is slowly rotating, flipping back and forth (showing palm then turning to show the back of the hand), showcasing the nail material, color shine, and fine details. The fingers bend and move gracefully. Photorealistic, 4k detail, elegant hand movements, clean studio lighting.`;
+      const videoPrompt = `A continuous, ultra-high-quality close-up video of a single elegant hand showcasing its custom manicure. Starting from the hand showing the beautiful back of the fingers (with nails facing the camera), the wrist and hand slowly, smoothly, and continuously rotate over in a single unbroken 3D physical movement to fully flip the hand and show the palm, then smoothly turn back to show the nails again. The rotation is a gradual, step-by-step 180-degree roll showing the side profile of fingers turning in mid-air. There are absolutely no sudden jumps, frame cuts, or morphing between the back of the hand and the palm. The fingers bend gracefully in slow motion. Consistent hand shape, skin tone, clear studio lighting.`;
       
       const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
       
