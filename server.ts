@@ -239,13 +239,7 @@ RULES:
 
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-image-preview",
-        contents: [{ role: 'user', parts: parts }],
-        config: {
-          imageConfig: {
-            aspectRatio: "9:16",
-            imageSize: "1K"
-          }
-        }
+        contents: [{ role: 'user', parts: parts }]
       });
 
       let resultImage = null;
@@ -276,7 +270,7 @@ RULES:
 
   registerApi('post', "/api/generate-video", async (req, res) => {
     try {
-      const { imageBase64, prompt } = req.body;
+      const { imageBase64, prompt, aspectRatio } = req.body;
       let cleanBase64 = imageBase64;
       let imgMimeType = 'image/jpeg';
       
@@ -303,7 +297,7 @@ RULES:
         config: {
           numberOfVideos: 1,
           resolution: '720p',
-          aspectRatio: '9:16'
+          aspectRatio: aspectRatio || '9:16'
         }
       });
 

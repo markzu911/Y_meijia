@@ -163,13 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-image-preview",
-        contents: [{ role: 'user', parts: parts }],
-        config: {
-          imageConfig: {
-            aspectRatio: "9:16",
-            imageSize: "1K"
-          }
-        }
+        contents: [{ role: 'user', parts: parts }]
       });
 
       let resultImage = null;
@@ -197,7 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (path.endsWith("/api/generate-video")) {
     try {
-      const { imageBase64, prompt } = req.body;
+      const { imageBase64, prompt, aspectRatio } = req.body;
       let cleanBase64 = imageBase64;
       let imgMimeType = 'image/jpeg';
       
@@ -223,7 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         config: {
           numberOfVideos: 1,
           resolution: '720p',
-          aspectRatio: '9:16'
+          aspectRatio: aspectRatio || '9:16'
         }
       });
 

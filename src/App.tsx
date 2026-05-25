@@ -185,6 +185,60 @@ function ImageUpload({ image, onUpload, label }: { image: string | null; onUploa
   );
 }
 
+const padImageForVeo = (base64Str: string): Promise<{ base64: string, wRatio: number, hRatio: number }> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject('No canvas context');
+      
+      const isPortrait = img.height > img.width;
+      let targetW, targetH;
+      
+      // Veo strongly prefers 9:16 or 16:9
+      if (isPortrait) {
+        // Pad width to match 9:16 aspect ratio
+        targetH = img.height;
+        targetW = Math.round(targetH * (9 / 16));
+        if (targetW < img.width) {
+          targetW = img.width;
+          targetH = Math.round(targetW * (16 / 9));
+        }
+      } else {
+        // Pad height to match 16:9 aspect ratio
+        targetW = img.width;
+        targetH = Math.round(targetW * (9 / 16));
+        if (targetH < img.height) {
+          targetH = img.height;
+          targetW = Math.round(targetH * (16 / 9));
+        }
+      }
+      
+      canvas.width = targetW;
+      canvas.height = targetH;
+      
+      // Fill with black
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, targetW, targetH);
+      
+      // Draw centered
+      const offsetX = (targetW - img.width) / 2;
+      const offsetY = (targetH - img.height) / 2;
+      ctx.drawImage(img, offsetX, offsetY);
+      
+      resolve({
+        base64: canvas.toDataURL('image/jpeg', 0.95),
+        wRatio: isPortrait ? 9 : 16,
+        hRatio: isPortrait ? 16 : 9
+      });
+    };
+    img.onerror = (e) => reject(e);
+    img.src = base64Str;
+  });
+};
+
 function SmartRecTab() {
   const saas = useContext(SaasContext);
   const [handImage, setHandImage] = useState<{ url: string; file: File } | null>(null);
@@ -224,13 +278,14 @@ function SmartRecTab() {
   const triggerVideoGeneration = async (imageBase64: string, styleDetails: string) => {
     setVideoLoading(true);
     setVideoError(null);
-    setVideoStep('✨ 正在融合您的试戴款式...');
+    setVideoStep('✨ 正在对图像进行适配...');
     
     try {
+      const paddedImage = await padImageForVeo(imageBase64);
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
       const videoPrompt = `An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.`;
       
-      const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
+      const { operationName } = await generateVideoStart(paddedImage.base64, videoPrompt, `${paddedImage.wRatio}:${paddedImage.hRatio}`);
       
       let attempts = 0;
       const maxAttempts = 120; // 10 mins limit
@@ -624,13 +679,14 @@ function CustomTab() {
   const triggerVideoGeneration = async (imageBase64: string, styleDetails: string) => {
     setVideoLoading(true);
     setVideoError(null);
-    setVideoStep('✨ 正在融合您的自定义试戴款式...');
+    setVideoStep('✨ 正在对图片进行适配...');
     
     try {
+      const paddedImage = await padImageForVeo(imageBase64);
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
       const videoPrompt = `An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its custom manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.`;
       
-      const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
+      const { operationName } = await generateVideoStart(paddedImage.base64, videoPrompt, `${paddedImage.wRatio}:${paddedImage.hRatio}`);
       
       let attempts = 0;
       const maxAttempts = 120; // 10 mins limit
