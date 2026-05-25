@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { analyzeHand, analyzeNailReference, generateNailTryOn } from './services/geminiService';
 import { saasLaunch, saasVerify, saasConsume } from './services/saasService';
 import { fileToBase64, compressImage } from './lib/utils';
+import VideoGenerator from './components/VideoGenerator';
 
 const SaasContext = createContext<{
   userId: string;
@@ -361,6 +362,10 @@ function SmartRecTab() {
                 </button>
               </div>
               
+              <div className="w-full max-w-sm">
+                <VideoGenerator imageSrc={resultImage} />
+              </div>
+              
               {history.length > 0 && (
                 <div className="w-full mt-4 pt-4 border-t border-neutral-100">
                   <div className="flex items-center justify-between mb-3">
@@ -558,6 +563,10 @@ function CustomTab() {
                 >
                   <Download size={18} />
                 </button>
+              </div>
+              
+              <div className="w-full max-w-sm">
+                <VideoGenerator imageSrc={resultImage} />
               </div>
               
               {history.length > 0 && (
