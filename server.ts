@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import axios from 'axios';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateVideosOperation } from "@google/genai";
 
 dotenv.config({ override: true });
 
@@ -305,7 +305,8 @@ RULES:
   registerApi('post', "/api/video-status", async (req, res) => {
     try {
       const { operationName } = req.body;
-      const op = { name: operationName } as any;
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
       const updated = await ai.operations.getVideosOperation({ operation: op });
       res.json({ done: updated.done });
     } catch (error: any) {
@@ -317,7 +318,8 @@ RULES:
   registerApi('post', "/api/video-download", async (req, res) => {
     try {
       const { operationName } = req.body;
-      const op = { name: operationName } as any;
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
       const updated = await ai.operations.getVideosOperation({ operation: op });
       const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
 

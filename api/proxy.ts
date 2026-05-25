@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateVideosOperation } from "@google/genai";
 import axios from "axios";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -225,7 +225,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (path.endsWith("/api/video-status")) {
     try {
       const { operationName } = req.body;
-      const op = { name: operationName } as any;
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
       const updated = await ai.operations.getVideosOperation({ operation: op });
       return res.status(200).json({ done: updated.done });
     } catch (e: any) {
@@ -237,7 +238,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (path.endsWith("/api/video-download")) {
     try {
       const { operationName } = req.body;
-      const op = { name: operationName } as any;
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
       const updated = await ai.operations.getVideosOperation({ operation: op });
       const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
 
