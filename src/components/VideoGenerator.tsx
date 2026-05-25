@@ -111,30 +111,21 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
       };
 
       // Animation parameters
-      const duration = 6000; // 6 seconds high-quality video showcase
+      const duration = 4000; // 4 seconds video
       const fps = 30;
       const totalFrames = (duration / 1000) * fps;
       let frame = 0;
 
       recorder.start();
 
-      // Fingertip coordinates corresponding to typical try-on layouts
-      const nailPoints = [
-        { name: 'pinky', x: width * 0.28, y: height * 0.45, size: 10 },
-        { name: 'ring', x: width * 0.39, y: height * 0.32, size: 12 },
-        { name: 'middle', x: width * 0.52, y: height * 0.29, size: 13 },
-        { name: 'index', x: width * 0.65, y: height * 0.35, size: 12 },
-        { name: 'thumb', x: width * 0.78, y: height * 0.58, size: 11 },
-      ];
-
-      // Background decorative ambient particle system
-      const ambienceParticles = Array.from({ length: 25 }, () => ({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        rx: (Math.random() - 0.5) * 2,
-        ry: -Math.random() * 1.5 - 0.5,
-        size: Math.random() * 4 + 2,
-        opacity: Math.random() * 0.5 + 0.3,
+      // Particle system for glowing nail shimmer (relative to the image center)
+      const sparkles = Array.from({ length: 15 }, () => ({
+        x: (Math.random() - 0.5) * 320,
+        y: (Math.random() - 0.1) * 380, // Upper-to-center part of the hand where fingers & nails are
+        size: Math.random() * 6 + 3,
+        speed: Math.random() * 0.06 + 0.03,
+        phase: Math.random() * Math.PI * 2,
+        color: Math.random() > 0.6 ? '#FFFFFF' : '#FFDF9E'
       }));
 
       return new Promise<void>((resolve, reject) => {
@@ -154,203 +145,121 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           // Clear Canvas
           ctx.clearRect(0, 0, width, height);
 
-          // DRAW LUSH STUDIO BACKGROUND (Elegant bokeh and radial light)
-          const bgGrd = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width);
-          bgGrd.addColorStop(0, '#FFFDF9');
-          bgGrd.addColorStop(0.5, '#FAF4EC');
-          bgGrd.addColorStop(1, '#E6DEC9');
-          ctx.fillStyle = bgGrd;
-          ctx.fillRect(0, 0, width, height);
+          // 1. Calculate realistic 3D hand turn perspective parameters
+          let scaleX = 1.0;
+          let skewY = 0.0;
+          let tiltGlowOpacity = 0.0;
 
-          // Draw floating dust bokeh
-          ctx.save();
-          ambienceParticles.forEach(p => {
-            p.y += p.ry;
-            p.x += p.rx;
-            if (p.y < -10) p.y = height + 10;
-            if (p.x < -10 || p.x > width + 10) p.x = Math.random() * width;
+          // Perform rotation wave between 20% and 80% of video progress (0.8s to 3.2s)
+          if (ratio >= 0.2 && ratio <= 0.8) {
+            const t = (ratio - 0.2) / 0.6; // Normalized 0 to 1
+            const easedT = (1 - Math.cos(t * Math.PI)) / 2; // Smooth acceleration/deceleration curve
+            const rotationAngle = easedT * Math.PI * 2; // Complete 360-degree rotation
             
-            ctx.fillStyle = 'rgba(235, 212, 183, 0.4)';
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-          });
-          ctx.restore();
-
-          // CINEMATIC CAM WORK ENVELOPES (Slight handheld camera movement)
-          const camZoom = 1.05 + Math.sin(ratio * Math.PI) * 0.05 + (1 - Math.cos(ratio * Math.PI * 2)) * 0.02;
-          const camX = Math.sin(ratio * Math.PI * 4) * 6;
-          const camY = Math.cos(ratio * Math.PI * 2) * 5;
-
-          ctx.save();
-          // Apply camera shake & zoom about screen center
-          ctx.translate(width / 2 + camX, height / 2 + camY);
-          ctx.scale(camZoom, camZoom);
-          ctx.translate(-width / 2, -height / 2);
-
-          // MASTER HAND SIMULATION PARAMETERS (Choreographed multi-phase movements)
-          // 1. Pivot sway & tilt mimicking model turning/presenting hand
-          const baseRotate = Math.sin(ratio * Math.PI * 2.2) * 0.08; // Left/Right wrist swivel
-          const tiltYaw = Math.cos(ratio * Math.PI * 1.8) * 0.12; // 3D Tilt perspective simulation
-          
-          // 2. High Definition slice rendering for ORGANIC FINGER FLEXING
-          const numSlices = 40;
-          const sliceHeight = height / numSlices;
-
-          for (let i = 0; i < numSlices; i++) {
-            const sy = i * (img.height / numSlices);
-            const sh = img.height / numSlices;
+            scaleX = Math.cos(rotationAngle);
+            skewY = Math.sin(rotationAngle) * 0.08; // Delicate vertical tilt
             
-            // Flex curve: 0 at wrist (bottom, i=numSlices), 1 at fingertip (top, i=0)
-            const t = (numSlices - i) / numSlices;
-            const flexFactor = Math.pow(t, 2.5); // Exponential bending towards tips
-            
-            // Dynamic bending/flexing displacement mimicking finger flexing rhythm
-            // Elegant flexing cycle: hand curls slightly then opens wide
-            const flexCycle = Math.sin(ratio * Math.PI * 2.5);
-            const flexX = flexCycle * 32 * flexFactor * Math.sin(i * 0.08); 
-            const flexY = Math.abs(flexCycle) * 12 * flexFactor;
-
-            // Apply 3D tilt perspective by shifting slice translation
-            const perspectiveShift = tiltYaw * (i - numSlices / 2) * 4;
-
-            ctx.save();
-            
-            // Pivot rotation anchor: bottom of canvas (wrist)
-            const anchorY = height * 0.95;
-            ctx.translate(width / 2 + flexX + perspectiveShift, anchorY);
-            ctx.rotate(baseRotate * t); // Bottom rotates less, top rotates more
-            ctx.translate(-width / 2, -anchorY);
-
-            // Translate specifically to slice path and apply beautiful dynamic shear / scale
-            ctx.translate(0, flexY);
-            
-            // Apply 3D rotation distortion (squeeze X slightly for depth)
-            const squeezeFactor = 1.0 - Math.abs(tiltYaw) * flexFactor * 0.25;
-            ctx.translate(width / 2, i * sliceHeight + sliceHeight / 2);
-            ctx.scale(squeezeFactor, 1.0);
-            ctx.transform(1, tiltYaw * flexFactor * 0.3, 0, 1, 0, 0); // Yaw perspective shear
-            ctx.translate(-width / 2, -(i * sliceHeight + sliceHeight / 2));
-
-            // Draw current luxury high-fidelity hand partition slice
-            ctx.drawImage(
-              img,
-              0, sy, img.width, sh,
-              0, i * sliceHeight, width, sliceHeight
-            );
-            
-            ctx.restore();
+            // Shimmer shine peaks as the hand turns towards the side
+            tiltGlowOpacity = Math.max(0, 1 - Math.abs(scaleX) * 2.5) * 0.3;
           }
 
-          // DYNAMIC LIGHT COUPLING & SPECULAR SPARKLES
-          // We calculate the current coordinate of the nails after flexing & sway
-          nailPoints.forEach((pt) => {
-            const rowIdx = Math.floor(pt.y / sliceHeight);
-            const t = (numSlices - rowIdx) / numSlices;
-            const flexFactor = Math.pow(t, 2.5);
-            const flexCycle = Math.sin(ratio * Math.PI * 2.5);
-            const flexX = flexCycle * 32 * flexFactor * Math.sin(rowIdx * 0.08);
-            const flexY = Math.abs(flexCycle) * 12 * flexFactor;
-            
-            const perspectiveShift = tiltYaw * (rowIdx - numSlices / 2) * 4;
-            const squeezeFactor = 1.0 - Math.abs(tiltYaw) * flexFactor * 0.25;
+          // Camera zoom/breath to keep it ultra-dynamic
+          const scale = 1.05 + Math.sin(ratio * Math.PI) * 0.03; 
+          const dX = Math.sin(ratio * Math.PI * 2) * 6; 
+          const dY = Math.cos(ratio * Math.PI) * 12 - 6; 
 
-            // Vector math to trace the exact canvas position of each nail
-            const anchorY = height * 0.95;
-            let nx = pt.x;
-            let ny = pt.y + flexY;
+          ctx.save();
+          // Move origin to canvas center for rotation/skew/flip transformations
+          ctx.translate(width / 2 + dX, height / 2 + dY);
+          
+          if (skewY !== 0) {
+            ctx.transform(1, skewY, 0, 1, 0, 0); // Apply pitch/tilt skewing
+          }
+          
+          ctx.scale(scaleX * scale, scale); // 3D-simulated vertical flip & zoom
+          
+          // Draw the original image with high fidelity
+          ctx.drawImage(img, -width / 2, -height / 2, width, height);
 
-            // Apply 3D Squeeze relative to Center
-            nx = width / 2 + (nx - width / 2) * squeezeFactor;
+          // 2. Add realistic light flares directly attached to the rotating hand's coordinate system
+          if (tiltGlowOpacity > 0) {
+            const glowGrd = ctx.createLinearGradient(-width / 2, 0, width / 2, 0);
+            glowGrd.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            glowGrd.addColorStop(0.5, `rgba(255, 255, 255, ${tiltGlowOpacity})`);
+            glowGrd.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = glowGrd;
+            ctx.fillRect(-width / 2, -height / 2, width, height);
+          }
 
-            // Apply Pivot rotate around wrist
-            const dx = nx - width / 2;
-            const dy = ny - anchorY;
-            const rotAngle = baseRotate * t;
-            const rotatedX = width / 2 + (dx * Math.cos(rotAngle) - dy * Math.sin(rotAngle)) + flexX + perspectiveShift;
-            const rotatedY = anchorY + (dx * Math.sin(rotAngle) + dy * Math.cos(rotAngle));
-
-            // Generate shimmering sparkles that correspond with the swipe angle
-            const glintActivation = Math.abs(Math.sin(ratio * Math.PI * 2.5 + pt.x * 0.015));
-            if (glintActivation > 0.4) {
+          // 3. Draw premium nail sparkles (anchored to the hand so they move in perfect sync as it flips!)
+          sparkles.forEach((sparkle) => {
+            const opacity = Math.sin(frame * sparkle.speed + sparkle.phase) * 0.5 + 0.5;
+            if (opacity > 0.15) {
               ctx.save();
-              ctx.globalAlpha = (glintActivation - 0.4) * 1.6;
+              ctx.globalAlpha = opacity;
+              ctx.fillStyle = sparkle.color;
               
-              // Light spot color selection (Diamond-gold and pristine-white)
-              ctx.fillStyle = pt.name === 'middle' || pt.name === 'thumb' ? '#FFFBEB' : '#FFFFFF';
-              
-              // Render gorgeous light glares (cross flare)
-              const flareSize = pt.size * (0.8 + Math.sin(frame * 0.3) * 0.3) * glintActivation;
-              
+              // Draw custom luxury star
               ctx.beginPath();
-              // Top leg
-              ctx.moveTo(rotatedX, rotatedY - flareSize * 1.5);
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX + flareSize * 0.3, rotatedY);
-              // Right leg
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX + flareSize * 1.5, rotatedY);
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX, rotatedY + flareSize * 0.3);
-              // Bottom leg
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX, rotatedY + flareSize * 1.5);
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX - flareSize * 0.3, rotatedY);
-              // Left leg
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX - flareSize * 1.5, rotatedY);
-              ctx.quadraticCurveTo(rotatedX, rotatedY, rotatedX, rotatedY - flareSize * 0.3);
+              ctx.moveTo(sparkle.x, sparkle.y - sparkle.size);
+              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x + sparkle.size, sparkle.y);
+              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x, sparkle.y + sparkle.size);
+              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x - sparkle.size, sparkle.y);
+              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x, sparkle.y - sparkle.size);
               ctx.closePath();
               ctx.fill();
 
-              // Super bright pristine core
+              // Super-bright core highlight
               ctx.beginPath();
-              ctx.arc(rotatedX, rotatedY, flareSize * 0.25, 0, Math.PI * 2);
+              ctx.arc(sparkle.x, sparkle.y, sparkle.size * 0.25, 0, Math.PI * 2);
               ctx.fillStyle = '#FFFFFF';
               ctx.fill();
               ctx.restore();
             }
           });
 
-          ctx.restore(); // Restore Camera Transform
+          ctx.restore(); // Finish transformed layer
 
-          // 3. CINEMATIC OVERLAY & GLOW (Top light sweeps / vignette)
-          // A. Vignette frame
-          const vignette = ctx.createRadialGradient(width / 2, height / 2, width / 3, width / 2, height / 2, width * 0.75);
-          vignette.addColorStop(0, 'rgba(0,0,0,0)');
-          vignette.addColorStop(1, 'rgba(102, 69, 52, 0.25)'); // Rich warm brown border
+          // 4. Overlaid Vignette for high-end cinematic feel (independent of hand rotation)
+          const vignette = ctx.createRadialGradient(width / 2, height / 2, width / 3, width / 2, height / 2, width * 0.7);
+          vignette.addColorStop(0, 'rgba(249, 246, 240, 0)'); // Keep core bright and crisp
+          vignette.addColorStop(1, 'rgba(30, 20, 15, 0.25)'); // Elegant warm brown-black tone border
           ctx.fillStyle = vignette;
           ctx.fillRect(0, 0, width, height);
 
-          // B. Glossy studio light ring sweeps
+          // 5. Ambient linear lighting reflection sweeps across the global camera frame
           ctx.save();
-          const sweepGlint = ratio * width * 2.5 - width;
-          const glintGrd = ctx.createLinearGradient(sweepGlint, 0, sweepGlint + 200, height);
+          const glintPosition = ratio * width * 2.5 - width;
+          const glintGrd = ctx.createLinearGradient(glintPosition, 0, glintPosition + 180, height);
           glintGrd.addColorStop(0, 'rgba(255, 255, 255, 0)');
-          glintGrd.addColorStop(0.5, 'rgba(255, 253, 245, 0.12)');
+          glintGrd.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
           glintGrd.addColorStop(1, 'rgba(255, 255, 255, 0)');
           ctx.fillStyle = glintGrd;
           ctx.fillRect(0, 0, width, height);
           ctx.restore();
 
-          // D. Subtly styled Watermark frame
+          // 6. Styled Luxury Brand frame at the bottom (fully static, steady watermark)
           ctx.save();
-          // Bottom elegant banner
-          const bannerGrd = ctx.createLinearGradient(0, height - 120, 0, height);
-          bannerGrd.addColorStop(0, 'rgba(0,0,0,0)');
-          bannerGrd.addColorStop(1, 'rgba(18,12,8,0.7)');
+          const bannerGrd = ctx.createLinearGradient(0, height - 130, 0, height);
+          bannerGrd.addColorStop(0, 'rgba(0, 0, 0, 0)');
+          bannerGrd.addColorStop(1, 'rgba(40, 30, 25, 0.75)'); // High contrast cinematic vignette bottom
           ctx.fillStyle = bannerGrd;
-          ctx.fillRect(0, height - 120, width, 120);
+          ctx.fillRect(0, height - 130, width, 130);
 
-          // Text styling
+          // Watermark text styling
           ctx.fillStyle = '#FFFFFF';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
           ctx.shadowBlur = 6;
           
           ctx.font = 'bold 24px "Inter", sans-serif';
-          ctx.fillText('NailAI 美甲工作室', 40, height - 55);
+          ctx.fillText('NailAI 美甲工作室', 40, height - 60);
           
           ctx.font = '500 16px "Inter", sans-serif';
-          ctx.fillStyle = 'rgba(247, 237, 225, 0.9)';
-          ctx.fillText('• 专属智创美甲试戴效果 •', 40, height - 25);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.fillText('• 智创美甲 • 专属试戴 •', 40, height - 28);
 
-          // Badge on Top-Right
-          ctx.fillStyle = 'rgba(122, 91, 69, 0.9)';
+          // Elegant top badge
+          ctx.fillStyle = 'rgba(122, 91, 69, 0.85)'; // Warm bronze tone
           ctx.beginPath();
           ctx.roundRect(width - 180, 40, 140, 36, 18);
           ctx.fill();
@@ -358,7 +267,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           ctx.fillStyle = '#FFFFFF';
           ctx.font = 'bold 12px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('DYNAMIC SHOWCASE', width - 110, 62);
+          ctx.fillText('VIRTUAL TRY-ON', width - 110, 62);
           ctx.restore();
 
           frame++;
