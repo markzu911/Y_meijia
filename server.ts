@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import axios from 'axios';
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateVideosOperation } from "@google/genai";
 
 dotenv.config({ override: true });
 
@@ -264,6 +264,96 @@ RULES:
       }
     } catch (error: any) {
       console.error('Error generating nail try-on:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  registerApi('post', "/api/video/generate", async (req, res) => {
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64) {
+        return res.status(400).json({ error: "Missing imageBase64" });
+      }
+
+      const cleanBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+      const cleanMimeType = mimeType || (imageBase64.includes(';') ? imageBase64.split(';')[0].split(':')[1] : 'image/png');
+
+      const operation = await ai.models.generateVideos({
+        model: 'veo-3.1-lite-generate-preview',
+        prompt: 'A hand slowly turning over in professional studio salon lighting, gracefully flipping to reveal and showcase the detailed fingernails with high fidelity design. Keep the nail designs completely accurate and consistent.',
+        image: {
+          imageBytes: cleanBase64,
+          mimeType: cleanMimeType,
+        },
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p',
+          aspectRatio: '9:16'
+        }
+      });
+
+      res.json({ operationName: operation.name });
+    } catch (error: any) {
+      console.error('Error starting video generation:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  registerApi('post', "/api/video/status", async (req, res) => {
+    try {
+      const { operationName } = req.body;
+      if (!operationName) {
+        return res.status(400).json({ error: "Missing operationName" });
+      }
+
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      res.json({ done: updated.done });
+    } catch (error: any) {
+      console.error('Error checking video status:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  registerApi('post', "/api/video/download", async (req, res) => {
+    try {
+      const { operationName } = req.body;
+      if (!operationName) {
+        return res.status(400).json({ error: "Missing operationName" });
+      }
+
+      const op = new GenerateVideosOperation();
+      op.name = operationName;
+      const updated = await ai.operations.getVideosOperation({ operation: op });
+      
+      const uri = updated.response?.generatedVideos?.[0]?.video?.uri;
+      if (!uri) {
+        return res.status(404).json({ error: "Video URI not found in operation response" });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY || '';
+      const videoRes = await fetch(uri, {
+        headers: { 'x-goog-api-key': apiKey },
+      });
+
+      res.setHeader('Content-Type', 'video/mp4');
+
+      if (videoRes.body) {
+        const reader = videoRes.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.end();
+            break;
+          }
+          res.write(Buffer.from(value));
+        }
+      } else {
+        res.status(500).json({ error: "No video body in source stream" });
+      }
+    } catch (error: any) {
+      console.error('Error streaming video:', error);
       res.status(500).json({ error: error.message });
     }
   });

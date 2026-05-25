@@ -13,6 +13,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [generationMode, setGenerationMode] = useState<'veo' | 'local'>('veo');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -21,7 +22,6 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
 
   useEffect(() => {
     return () => {
-      // Cleanup URLs on unmount
       if (videoUrl) {
         URL.revokeObjectURL(videoUrl);
       }
@@ -42,7 +42,16 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
     }
   };
 
-  const generateVideo = async () => {
+  const handleGenerate = async () => {
+    if (generationMode === 'veo') {
+      await generateVideoVeo();
+    } else {
+      await generateVideoLocal();
+    }
+  };
+
+  // 1. Gemini Veo Video Generation (The real deal - flips and turns hand realistically)
+  const generateVideoVeo = async () => {
     setStatus('generating');
     setProgress(0);
     setErrorMessage('');
@@ -53,11 +62,104 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
     }
 
     try {
-      // Load the image first
+      const response = await fetch('/api/video/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: imageSrc,
+          mimeType: 'image/png'
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Gemini Veo API 启动视频生成任务失败');
+      }
+
+      const { operationName } = await response.json();
+      if (!operationName) {
+        throw new Error('未获取到视频生成的操作任务ID');
+      }
+
+      // Polling
+      let isDone = false;
+      let attempts = 0;
+      const maxAttempts = 120; // Allow 4 minutes
+
+      while (!isDone && attempts < maxAttempts) {
+        // Wait 3 seconds
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        attempts++;
+
+        // Faux progress simulation up to 98% to excite user
+        setProgress(Math.min(98, Math.round((attempts / 40) * 100)));
+
+        const statusResponse = await fetch('/api/video/status', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ operationName })
+        });
+
+        if (!statusResponse.ok) {
+          continue; // Handle transient error during polling gracefully
+        }
+
+        const data = await statusResponse.json();
+        if (data.done) {
+          isDone = true;
+        }
+      }
+
+      if (!isDone) {
+        throw new Error('视频生成超时，由于后端排列任务过多，请稍后重试或切换本地拟态渲染');
+      }
+
+      setProgress(100);
+
+      // Fetch downloadable stream
+      const downloadResponse = await fetch('/api/video/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ operationName })
+      });
+
+      if (!downloadResponse.ok) {
+        throw new Error('获取已生成视频流数据失败');
+      }
+
+      const blob = await downloadResponse.blob();
+      const videoBlobUrl = URL.createObjectURL(blob);
+      setVideoUrl(videoBlobUrl);
+      setStatus('completed');
+      setIsPlaying(true);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage(err.message || 'Gemini Veo 视频生成出错，您可以点击下方切换为“本地3D拟态试戴”秒级渲染。');
+      setStatus('error');
+    }
+  };
+
+  // 2. Local 3D simulation renderer (instant fallback backup strategy)
+  const generateVideoLocal = async () => {
+    setStatus('generating');
+    setProgress(0);
+    setErrorMessage('');
+
+    if (videoUrl) {
+      URL.revokeObjectURL(videoUrl);
+      setVideoUrl(null);
+    }
+
+    try {
       const img = new Image();
-      img.crossOrigin = 'anonymous'; // Enable CORS if it's external (e.g. from Aliyun OSS)
+      img.crossOrigin = 'anonymous';
       
-      // Wait for image loading
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
         img.onerror = () => reject(new Error('图片加载失败，无法生成视频'));
@@ -67,7 +169,6 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
       const canvas = canvasRef.current;
       if (!canvas) throw new Error('画布初始化失败');
 
-      // Set canvas dimensions of standard portrait ratio (720x960)
       const width = 720;
       const height = 960;
       canvas.width = width;
@@ -76,10 +177,8 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('无法创建画布渲染上下文');
 
-      // Create stream at 30fps
       const stream = canvas.captureStream(30);
       
-      // Select best supported MIME type
       let mimeType = 'video/mp4;codecs=h264';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'video/webm;codecs=vp9';
@@ -91,7 +190,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
       const chunks: Blob[] = [];
       const recorder = new MediaRecorder(stream, {
         mimeType,
-        videoBitsPerSecond: 3000000 // 3 Mbps for high-quality video
+        videoBitsPerSecond: 3000000
       });
 
       mediaRecorderRef.current = recorder;
@@ -110,25 +209,23 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
         setIsPlaying(true);
       };
 
-      // Animation parameters
-      const duration = 4500; // 4.5 seconds for premium storytelling
+      const duration = 4500;
       const fps = 30;
       const totalFrames = (duration / 1000) * fps;
       let frame = 0;
 
       recorder.start();
 
-      // Premium luxury particle sparkle nodes
       const sparkles = Array.from({ length: 18 }, () => ({
-        x: (Math.random() - 0.5) * 280, // Clustered in nail area
-        y: (Math.random() - 0.2) * 320, // Clustered in upper half of image
+        x: (Math.random() - 0.5) * 280,
+        y: (Math.random() - 0.2) * 320,
         size: Math.random() * 5 + 3,
         speed: Math.random() * 0.08 + 0.04,
         phase: Math.random() * Math.PI * 2,
         color: Math.random() > 0.5 ? '#FFFFFF' : '#FFDF9E'
       }));
 
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve) => {
         const render = () => {
           if (frame >= totalFrames) {
             recorder.stop();
@@ -142,59 +239,48 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           const ratio = frame / totalFrames;
           setProgress(Math.round(ratio * 100));
 
-          // 1. CLEAR CANVAS
           ctx.clearRect(0, 0, width, height);
 
-          // 2. DEFINE CINEMATIC SEQUENCER ACTIONS
           let actionLabel = "";
           let zoomScale = 1.05;
           let focalX = 0;
-          let focalY = -40; // Focus on fingers
+          let focalY = -40;
           let handFlexMultiplier = 0;
           let catEyeSweep = 0;
           let lightRingPower = 0.4;
 
           if (ratio < 0.3) {
-            // Scene 1: Breathing Focal Scan (慢速推流光)
             actionLabel = "ACTION 1: 细节特写与肌理慢镜头";
             const sRatio = ratio / 0.3;
-            zoomScale = 1.04 + sRatio * 0.06; // Smooth push-in
+            zoomScale = 1.04 + sRatio * 0.06;
             focalY = -40 + sRatio * 15;
             handFlexMultiplier = Math.sin(sRatio * Math.PI * 0.5) * 4;
             catEyeSweep = -1 + sRatio * 0.8;
             lightRingPower = 0.35 + Math.sin(sRatio * Math.PI) * 0.15;
           } else if (ratio >= 0.3 && ratio < 0.7) {
-            // Scene 2: 3D Finger Flex & Roll (3D骨骼微弯模拟)
             actionLabel = "ACTION 2: 3D指间微弯动作与翻转";
             const sRatio = (ratio - 0.3) / 0.4;
             zoomScale = 1.10 - Math.sin(sRatio * Math.PI) * 0.03;
             focalX = Math.sin(sRatio * Math.PI * 2) * 12;
             focalY = -25 - Math.sin(sRatio * Math.PI) * 10;
-            // High flex index to stimulate finger bending via canvas sliced waves
             handFlexMultiplier = 16 * Math.sin(sRatio * Math.PI * 2);
             catEyeSweep = -0.2 + Math.sin(sRatio * Math.PI * 1.5) * 0.6;
             lightRingPower = 0.5 + Math.cos(sRatio * Math.PI) * 0.2;
           } else {
-            // Scene 3: Metallic Cat-Eye Gleam Specular Sweep (猫眼磁吸炫光)
             actionLabel = "ACTION 3: 猫眼磁吸炫彩与美颜滤镜";
             const sRatio = (ratio - 0.7) / 0.3;
             zoomScale = 1.07 + Math.sin(sRatio * Math.PI * 0.5) * 0.04;
             focalX = Math.cos(sRatio * Math.PI) * 8;
             focalY = -35 + sRatio * 10;
             handFlexMultiplier = Math.cos(sRatio * Math.PI) * 3;
-            catEyeSweep = -0.5 + sRatio * 2.0; // Drastic reflection sweep
+            catEyeSweep = -0.5 + sRatio * 2.0;
             lightRingPower = 0.4 + sRatio * 0.25;
           }
 
-          // 3. DRAW BACKGROUND WITH HIGH-FIDELITY FLEXING AND MOTION
           ctx.save();
-          // Position camera viewport centering on focal coordinates
           ctx.translate(width / 2 + focalX, height / 2 + focalY);
           ctx.scale(zoomScale, zoomScale);
 
-          // RENDER 3D HAND BENDING FLEXIVITY
-          // We divide the image into 65 vertical/horizontal slices.
-          // Applying progressive horizontal displacements creates the illusion of fingers bending and flexing.
           const slices = 65;
           const srcHeight = img.naturalHeight;
           const srcWidth = img.naturalWidth;
@@ -207,9 +293,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
             const dy = (sliceIndex / slices) * destHeight - destHeight / 2;
             const dh = destHeight / slices;
 
-            // Slices at the top of the canvas (finger tips/nails) flex more.
-            // Slices at the bottom (wrist) remain completely stationary.
-            const sliceFactor = 1.0 - (sliceIndex / slices); // 1.0 at finger tips, 0.0 at wrist
+            const sliceFactor = 1.0 - (sliceIndex / slices);
             const sliceOffset = handFlexMultiplier * Math.sin(sliceIndex * 0.07 + ratio * Math.PI * 2) * sliceFactor;
 
             ctx.drawImage(
@@ -219,8 +303,6 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
             );
           }
 
-          // 4. EMBED NAIL COORDINATE REFLECTIONS (SHIMS)
-          // Sparkles aligned closely to fingertip motion offsets
           sparkles.forEach((s) => {
             const opacity = Math.sin(frame * s.speed + s.phase) * 0.4 + 0.6;
             if (opacity > 0.15) {
@@ -228,14 +310,12 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
               ctx.globalAlpha = opacity;
               ctx.fillStyle = s.color;
 
-              // Top fingers shift more according to top flexing factor (assume s.y relative offset is mapped to slice height)
               const fingerYRatio = 1.0 - ((s.y + height / 2) / height);
               const flexAdjustment = handFlexMultiplier * Math.sin(((s.y + height / 2) / height) * 65 * 0.07 + ratio * Math.PI * 2) * Math.max(0, fingerYRatio);
 
               const px = s.x + flexAdjustment;
               const py = s.y;
 
-              // Elegant star glow shape
               ctx.beginPath();
               ctx.moveTo(px, py - s.size);
               ctx.quadraticCurveTo(px, py, px + s.size, py);
@@ -245,7 +325,6 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
               ctx.closePath();
               ctx.fill();
 
-              // Super-bright pinpoint center
               ctx.beginPath();
               ctx.arc(px, py, s.size * 0.25, 0, Math.PI * 2);
               ctx.fillStyle = '#FFFFFF';
@@ -254,34 +333,28 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
             }
           });
 
-          // Restore from transformed matrix
           ctx.restore();
 
-          // 5. CINEMATIC OVERLAYS & GLOSS EFFECTS (Independently tracked for depth)
-          // A. Warm Studio Spotlight / Radial Vignette
           const vignette = ctx.createRadialGradient(width / 2, height / 2, width / 4, width / 2, height / 2, width * 0.75);
           vignette.addColorStop(0, 'rgba(253, 251, 247, 0)');
-          vignette.addColorStop(0.5, `rgba(180, 150, 130, ${0.1 * lightRingPower})`); // Warm golden aura
-          vignette.addColorStop(1, 'rgba(26, 18, 14, 0.35)'); // Professional dark brown-gold border
+          vignette.addColorStop(0.5, `rgba(180, 150, 130, ${0.1 * lightRingPower})`);
+          vignette.addColorStop(1, 'rgba(26, 18, 14, 0.35)');
           ctx.fillStyle = vignette;
           ctx.fillRect(0, 0, width, height);
 
-          // B. Cat-Eye Specular Glis Refraction Sweep (diagonal light reflection inside the film)
           ctx.save();
           const sweepPosition = catEyeSweep * width * 1.5 - width * 0.5;
           const glintGrd = ctx.createLinearGradient(sweepPosition, 0, sweepPosition + 140, height);
           glintGrd.addColorStop(0, 'rgba(255, 255, 255, 0)');
           glintGrd.addColorStop(0.35, 'rgba(255, 255, 255, 0.03)');
-          glintGrd.addColorStop(0.5, `rgba(255, 245, 225, ${0.15 * lightRingPower})`); // Brilliant high-end salon shimmer
+          glintGrd.addColorStop(0.5, `rgba(255, 245, 225, ${0.15 * lightRingPower})`);
           glintGrd.addColorStop(0.65, 'rgba(255, 255, 255, 0.03)');
           glintGrd.addColorStop(1, 'rgba(255, 255, 255, 0)');
           ctx.fillStyle = glintGrd;
           ctx.fillRect(0, 0, width, height);
           ctx.restore();
 
-          // 6. DYNAMIC OVERLAID ACTION BRAND BANNER (Showing current videography mode)
           ctx.save();
-          // High-end translucent status strip
           ctx.fillStyle = 'rgba(26, 18, 14, 0.6)';
           ctx.beginPath();
           ctx.roundRect(40, 40, 360, 36, 18);
@@ -290,16 +363,14 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           ctx.fillStyle = '#FFEAB5';
           ctx.font = 'bold 12px "Inter", sans-serif';
           ctx.textAlign = 'left';
-          // Little blinking recording indicator
           const binker = Math.floor(frame / 10) % 2 === 0 ? "●" : " ";
           ctx.fillText(`${binker} REC | ${actionLabel}`, 60, 62);
           ctx.restore();
 
-          // 7. STATIONARY LUXURY OUTSIDE BRAND FRAME AND WATERMARK
           ctx.save();
           const bannerGrd = ctx.createLinearGradient(0, height - 130, 0, height);
           bannerGrd.addColorStop(0, 'rgba(0, 0, 0, 0)');
-          bannerGrd.addColorStop(1, 'rgba(30, 20, 15, 0.8)'); // Cinematic ground shadow
+          bannerGrd.addColorStop(1, 'rgba(30, 20, 15, 0.8)');
           ctx.fillStyle = bannerGrd;
           ctx.fillRect(0, height - 130, width, 130);
 
@@ -314,7 +385,6 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
           ctx.fillText('• 智创视频生成 • 3D 拟态试戴特写 •', 40, height - 30);
 
-          // Top Elegant Right Stamp
           ctx.fillStyle = 'rgba(122, 91, 69, 0.9)';
           ctx.beginPath();
           ctx.roundRect(width - 180, 40, 140, 36, 18);
@@ -335,7 +405,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
 
     } catch (e: any) {
       console.error(e);
-      setErrorMessage(e.message || '视频生成出错，请重试');
+      setErrorMessage(e.message || '本地视频生成出错');
       setStatus('error');
     }
   };
@@ -344,9 +414,8 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
     if (!videoUrl) return;
     const a = document.createElement('a');
     a.href = videoUrl;
-    // Base standard is webm or mp4
     const isMp4 = videoUrl.includes('video/mp4') || MediaRecorder.isTypeSupported('video/mp4;codecs=h264');
-    a.download = `nailai-preview-${Date.now()}.${isMp4 ? 'mp4' : 'webm'}`;
+    a.download = `nailai-veo-preview-${Date.now()}.${isMp4 ? 'mp4' : 'webm'}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -355,30 +424,80 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
   return (
     <div className="w-full flex flex-col items-center">
       {status === 'idle' && (
-        <button
-          onClick={generateVideo}
-          className="w-full py-3 px-4 bg-[#7A5B45] hover:bg-[#684C38] text-white rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm transition-all"
-        >
-          <Film size={18} />
-          <span>生成试戴展示短视频 (3D炫彩)</span>
-        </button>
+        <div className="w-full flex flex-col gap-4">
+          {/* Mode Switcher Buttons */}
+          <div className="flex bg-[#EAE6DF] p-1 rounded-xl">
+            <button
+              onClick={() => setGenerationMode('veo')}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                generationMode === 'veo'
+                  ? 'bg-[#7A5B45] text-white shadow-sm'
+                  : 'text-[#696158] hover:text-[#4A443D]'
+              }`}
+            >
+              <Sparkles size={14} />
+              Gemini Veo (真实翻手视频)
+            </button>
+            <button
+              onClick={() => setGenerationMode('local')}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                generationMode === 'local'
+                  ? 'bg-[#7A5B45] text-white shadow-sm'
+                  : 'text-[#696158] hover:text-[#4A443D]'
+              }`}
+            >
+              <Film size={14} />
+              本地3D仿物拟态试戴
+            </button>
+          </div>
+
+          <button
+            onClick={handleGenerate}
+            className="w-full py-3.5 px-4 bg-[#7A5B45] hover:bg-[#684C38] text-white rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm transition-all"
+          >
+            {generationMode === 'veo' ? <Sparkles size={18} /> : <Film size={18} />}
+            <span>
+              {generationMode === 'veo'
+                ? '使用 Gemini Veo 智能技术生成“真实翻手视频”'
+                : '一键生成本地3D拟态展示视频 (极速)'}
+            </span>
+          </button>
+          
+          <p className="text-[10px] text-center text-[#968F85] leading-relaxed">
+            {generationMode === 'veo'
+              ? '✨ 推荐：由最新 Gemini Veo 视频大模型驱动，真实模拟手指弯曲和翻转，全方位拟真展示美甲效果。由于大模型生成较慢，渲染时间预计约需 10-30 秒。'
+              : '⚡️ 极速：基于当前照片进行 3D 骨骼位移，极速输出透视渲染。'}
+          </p>
+        </div>
       )}
 
       {status === 'generating' && (
         <div className="w-full p-6 bg-[#F2EFE9] rounded-2xl border border-[#EAE6DF] flex flex-col items-center justify-center text-center gap-4">
           <div className="relative flex items-center justify-center w-16 h-16">
             <Loader2 className="animate-spin text-[#9C7A63] absolute" size={48} />
-            <Film className="text-[#9C7A63]/60" size={24} />
+            {generationMode === 'veo' ? (
+              <Sparkles className="text-[#9C7A63] animate-pulse" size={24} />
+            ) : (
+              <Film className="text-[#9C7A63]/60" size={24} />
+            )}
           </div>
           <div className="w-full max-w-xs bg-[#EAE6DF] h-2 rounded-full overflow-hidden">
             <div 
-              className="bg-[#9C7A63] h-full transition-all duration-100 ease-out" 
+              className="bg-[#9C7A63] h-full transition-all duration-300 ease-out" 
               style={{ width: `${progress}%` }}
             />
           </div>
           <div>
-            <p className="font-semibold text-sm text-[#4A443D]">正在渲染您的专属美甲展示视频...</p>
-            <p className="text-xs text-[#968F85] mt-1">运用3D摄像机平移与流光细节闪耀滤镜 ({progress}%)</p>
+            <p className="font-semibold text-sm text-[#4A443D]">
+              {generationMode === 'veo'
+                ? '正在呼叫 Gemini Veo 智剪视频模型...'
+                : '正在进行 3D 仿物拟态极速渲染...'}
+            </p>
+            <p className="text-xs text-[#968F85] mt-1">
+              {generationMode === 'veo'
+                ? `模型正在优雅翻转您的手掌，精准还原美甲闪耀细节 (${progress}%)`
+                : `应用 3D 骨骼拉伸，正在执行第 ${progress}% 帧捕获...`}
+            </p>
           </div>
         </div>
       )}
@@ -392,10 +511,10 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           <div className="w-full flex items-center justify-between border-b border-[#EAE6DF] pb-2">
             <span className="text-xs font-semibold text-[#696158] flex items-center gap-1.5">
               <CheckCircle2 size={14} className="text-green-600" />
-              美甲美颜短视频已预备
+              {generationMode === 'veo' ? 'Gemini Veo 翻手秀视频已预备' : '美甲拟真透视短视频已生成'}
             </span>
             <button 
-              onClick={generateVideo}
+              onClick={handleGenerate}
               className="text-xs text-[#9C7A63] hover:text-[#7A5B45] font-medium flex items-center gap-1.5 transition-colors"
             >
               <RefreshCw size={12} />
@@ -432,7 +551,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
               className="flex-1 py-3 px-4 bg-[#7A5B45] hover:bg-[#684C38] text-white rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm transition-all text-sm"
             >
               <Download size={16} />
-              <span>下载超清视频</span>
+              <span>下载展示短视频</span>
             </button>
             {onClose && (
               <button
@@ -450,15 +569,33 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
         <div className="w-full p-6 bg-red-50 rounded-2xl border border-red-100 flex flex-col items-center text-center gap-3">
           <AlertCircle className="text-red-500" size={32} />
           <div>
-            <p className="font-semibold text-sm text-red-800">{errorMessage}</p>
-            <p className="text-xs text-red-600 mt-1">可能浏览器不支持高级视频编码或画布不可读</p>
+            <p className="font-semibold text-sm text-red-800 leading-snug">{errorMessage}</p>
+            {generationMode === 'veo' && (
+              <button
+                onClick={() => {
+                  setGenerationMode('local');
+                  setStatus('idle');
+                }}
+                className="mt-2 text-xs font-semibold text-[#7A5B45] underline block mx-auto hover:text-[#684C38]"
+              >
+                一键切换为“本地极速3D拟态渲染”备份方案
+              </button>
+            )}
           </div>
-          <button
-            onClick={generateVideo}
-            className="mt-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
-          >
-            重试一下
-          </button>
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleGenerate}
+              className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+            >
+              重试生成
+            </button>
+            <button
+              onClick={() => setStatus('idle')}
+              className="py-2 px-4 bg-white border border-red-200 text-red-800 text-xs font-semibold rounded-lg shadow-sm transition-all hover:bg-red-50"
+            >
+              返回
+            </button>
+          </div>
         </div>
       )}
 
