@@ -111,21 +111,21 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
       };
 
       // Animation parameters
-      const duration = 4000; // 4 seconds video
+      const duration = 4500; // 4.5 seconds for premium storytelling
       const fps = 30;
       const totalFrames = (duration / 1000) * fps;
       let frame = 0;
 
       recorder.start();
 
-      // Particle system for glowing nail shimmer (relative to the image center)
-      const sparkles = Array.from({ length: 15 }, () => ({
-        x: (Math.random() - 0.5) * 320,
-        y: (Math.random() - 0.1) * 380, // Upper-to-center part of the hand where fingers & nails are
-        size: Math.random() * 6 + 3,
-        speed: Math.random() * 0.06 + 0.03,
+      // Premium luxury particle sparkle nodes
+      const sparkles = Array.from({ length: 18 }, () => ({
+        x: (Math.random() - 0.5) * 280, // Clustered in nail area
+        y: (Math.random() - 0.2) * 320, // Clustered in upper half of image
+        size: Math.random() * 5 + 3,
+        speed: Math.random() * 0.08 + 0.04,
         phase: Math.random() * Math.PI * 2,
-        color: Math.random() > 0.6 ? '#FFFFFF' : '#FFDF9E'
+        color: Math.random() > 0.5 ? '#FFFFFF' : '#FFDF9E'
       }));
 
       return new Promise<void>((resolve, reject) => {
@@ -142,124 +142,180 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           const ratio = frame / totalFrames;
           setProgress(Math.round(ratio * 100));
 
-          // Clear Canvas
+          // 1. CLEAR CANVAS
           ctx.clearRect(0, 0, width, height);
 
-          // 1. Calculate realistic 3D hand turn perspective parameters
-          let scaleX = 1.0;
-          let skewY = 0.0;
-          let tiltGlowOpacity = 0.0;
+          // 2. DEFINE CINEMATIC SEQUENCER ACTIONS
+          let actionLabel = "";
+          let zoomScale = 1.05;
+          let focalX = 0;
+          let focalY = -40; // Focus on fingers
+          let handFlexMultiplier = 0;
+          let catEyeSweep = 0;
+          let lightRingPower = 0.4;
 
-          // Perform rotation wave between 20% and 80% of video progress (0.8s to 3.2s)
-          if (ratio >= 0.2 && ratio <= 0.8) {
-            const t = (ratio - 0.2) / 0.6; // Normalized 0 to 1
-            const easedT = (1 - Math.cos(t * Math.PI)) / 2; // Smooth acceleration/deceleration curve
-            const rotationAngle = easedT * Math.PI * 2; // Complete 360-degree rotation
-            
-            scaleX = Math.cos(rotationAngle);
-            skewY = Math.sin(rotationAngle) * 0.08; // Delicate vertical tilt
-            
-            // Shimmer shine peaks as the hand turns towards the side
-            tiltGlowOpacity = Math.max(0, 1 - Math.abs(scaleX) * 2.5) * 0.3;
+          if (ratio < 0.3) {
+            // Scene 1: Breathing Focal Scan (慢速推流光)
+            actionLabel = "ACTION 1: 细节特写与肌理慢镜头";
+            const sRatio = ratio / 0.3;
+            zoomScale = 1.04 + sRatio * 0.06; // Smooth push-in
+            focalY = -40 + sRatio * 15;
+            handFlexMultiplier = Math.sin(sRatio * Math.PI * 0.5) * 4;
+            catEyeSweep = -1 + sRatio * 0.8;
+            lightRingPower = 0.35 + Math.sin(sRatio * Math.PI) * 0.15;
+          } else if (ratio >= 0.3 && ratio < 0.7) {
+            // Scene 2: 3D Finger Flex & Roll (3D骨骼微弯模拟)
+            actionLabel = "ACTION 2: 3D指间微弯动作与翻转";
+            const sRatio = (ratio - 0.3) / 0.4;
+            zoomScale = 1.10 - Math.sin(sRatio * Math.PI) * 0.03;
+            focalX = Math.sin(sRatio * Math.PI * 2) * 12;
+            focalY = -25 - Math.sin(sRatio * Math.PI) * 10;
+            // High flex index to stimulate finger bending via canvas sliced waves
+            handFlexMultiplier = 16 * Math.sin(sRatio * Math.PI * 2);
+            catEyeSweep = -0.2 + Math.sin(sRatio * Math.PI * 1.5) * 0.6;
+            lightRingPower = 0.5 + Math.cos(sRatio * Math.PI) * 0.2;
+          } else {
+            // Scene 3: Metallic Cat-Eye Gleam Specular Sweep (猫眼磁吸炫光)
+            actionLabel = "ACTION 3: 猫眼磁吸炫彩与美颜滤镜";
+            const sRatio = (ratio - 0.7) / 0.3;
+            zoomScale = 1.07 + Math.sin(sRatio * Math.PI * 0.5) * 0.04;
+            focalX = Math.cos(sRatio * Math.PI) * 8;
+            focalY = -35 + sRatio * 10;
+            handFlexMultiplier = Math.cos(sRatio * Math.PI) * 3;
+            catEyeSweep = -0.5 + sRatio * 2.0; // Drastic reflection sweep
+            lightRingPower = 0.4 + sRatio * 0.25;
           }
 
-          // Camera zoom/breath to keep it ultra-dynamic
-          const scale = 1.05 + Math.sin(ratio * Math.PI) * 0.03; 
-          const dX = Math.sin(ratio * Math.PI * 2) * 6; 
-          const dY = Math.cos(ratio * Math.PI) * 12 - 6; 
-
+          // 3. DRAW BACKGROUND WITH HIGH-FIDELITY FLEXING AND MOTION
           ctx.save();
-          // Move origin to canvas center for rotation/skew/flip transformations
-          ctx.translate(width / 2 + dX, height / 2 + dY);
-          
-          if (skewY !== 0) {
-            ctx.transform(1, skewY, 0, 1, 0, 0); // Apply pitch/tilt skewing
-          }
-          
-          ctx.scale(scaleX * scale, scale); // 3D-simulated vertical flip & zoom
-          
-          // Draw the original image with high fidelity
-          ctx.drawImage(img, -width / 2, -height / 2, width, height);
+          // Position camera viewport centering on focal coordinates
+          ctx.translate(width / 2 + focalX, height / 2 + focalY);
+          ctx.scale(zoomScale, zoomScale);
 
-          // 2. Add realistic light flares directly attached to the rotating hand's coordinate system
-          if (tiltGlowOpacity > 0) {
-            const glowGrd = ctx.createLinearGradient(-width / 2, 0, width / 2, 0);
-            glowGrd.addColorStop(0, 'rgba(255, 255, 255, 0)');
-            glowGrd.addColorStop(0.5, `rgba(255, 255, 255, ${tiltGlowOpacity})`);
-            glowGrd.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            ctx.fillStyle = glowGrd;
-            ctx.fillRect(-width / 2, -height / 2, width, height);
+          // RENDER 3D HAND BENDING FLEXIVITY
+          // We divide the image into 65 vertical/horizontal slices.
+          // Applying progressive horizontal displacements creates the illusion of fingers bending and flexing.
+          const slices = 65;
+          const srcHeight = img.naturalHeight;
+          const srcWidth = img.naturalWidth;
+          const destHeight = height;
+          const destWidth = width;
+
+          for (let sliceIndex = 0; sliceIndex < slices; sliceIndex++) {
+            const sy = (sliceIndex / slices) * srcHeight;
+            const sh = srcHeight / slices;
+            const dy = (sliceIndex / slices) * destHeight - destHeight / 2;
+            const dh = destHeight / slices;
+
+            // Slices at the top of the canvas (finger tips/nails) flex more.
+            // Slices at the bottom (wrist) remain completely stationary.
+            const sliceFactor = 1.0 - (sliceIndex / slices); // 1.0 at finger tips, 0.0 at wrist
+            const sliceOffset = handFlexMultiplier * Math.sin(sliceIndex * 0.07 + ratio * Math.PI * 2) * sliceFactor;
+
+            ctx.drawImage(
+              img,
+              0, sy, srcWidth, sh,
+              -destWidth / 2 + sliceOffset, dy, destWidth, dh
+            );
           }
 
-          // 3. Draw premium nail sparkles (anchored to the hand so they move in perfect sync as it flips!)
-          sparkles.forEach((sparkle) => {
-            const opacity = Math.sin(frame * sparkle.speed + sparkle.phase) * 0.5 + 0.5;
+          // 4. EMBED NAIL COORDINATE REFLECTIONS (SHIMS)
+          // Sparkles aligned closely to fingertip motion offsets
+          sparkles.forEach((s) => {
+            const opacity = Math.sin(frame * s.speed + s.phase) * 0.4 + 0.6;
             if (opacity > 0.15) {
               ctx.save();
               ctx.globalAlpha = opacity;
-              ctx.fillStyle = sparkle.color;
-              
-              // Draw custom luxury star
+              ctx.fillStyle = s.color;
+
+              // Top fingers shift more according to top flexing factor (assume s.y relative offset is mapped to slice height)
+              const fingerYRatio = 1.0 - ((s.y + height / 2) / height);
+              const flexAdjustment = handFlexMultiplier * Math.sin(((s.y + height / 2) / height) * 65 * 0.07 + ratio * Math.PI * 2) * Math.max(0, fingerYRatio);
+
+              const px = s.x + flexAdjustment;
+              const py = s.y;
+
+              // Elegant star glow shape
               ctx.beginPath();
-              ctx.moveTo(sparkle.x, sparkle.y - sparkle.size);
-              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x + sparkle.size, sparkle.y);
-              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x, sparkle.y + sparkle.size);
-              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x - sparkle.size, sparkle.y);
-              ctx.quadraticCurveTo(sparkle.x, sparkle.y, sparkle.x, sparkle.y - sparkle.size);
+              ctx.moveTo(px, py - s.size);
+              ctx.quadraticCurveTo(px, py, px + s.size, py);
+              ctx.quadraticCurveTo(px, py, px, py + s.size);
+              ctx.quadraticCurveTo(px, py, px - s.size, py);
+              ctx.quadraticCurveTo(px, py, px, py - s.size);
               ctx.closePath();
               ctx.fill();
 
-              // Super-bright core highlight
+              // Super-bright pinpoint center
               ctx.beginPath();
-              ctx.arc(sparkle.x, sparkle.y, sparkle.size * 0.25, 0, Math.PI * 2);
+              ctx.arc(px, py, s.size * 0.25, 0, Math.PI * 2);
               ctx.fillStyle = '#FFFFFF';
               ctx.fill();
               ctx.restore();
             }
           });
 
-          ctx.restore(); // Finish transformed layer
+          // Restore from transformed matrix
+          ctx.restore();
 
-          // 4. Overlaid Vignette for high-end cinematic feel (independent of hand rotation)
-          const vignette = ctx.createRadialGradient(width / 2, height / 2, width / 3, width / 2, height / 2, width * 0.7);
-          vignette.addColorStop(0, 'rgba(249, 246, 240, 0)'); // Keep core bright and crisp
-          vignette.addColorStop(1, 'rgba(30, 20, 15, 0.25)'); // Elegant warm brown-black tone border
+          // 5. CINEMATIC OVERLAYS & GLOSS EFFECTS (Independently tracked for depth)
+          // A. Warm Studio Spotlight / Radial Vignette
+          const vignette = ctx.createRadialGradient(width / 2, height / 2, width / 4, width / 2, height / 2, width * 0.75);
+          vignette.addColorStop(0, 'rgba(253, 251, 247, 0)');
+          vignette.addColorStop(0.5, `rgba(180, 150, 130, ${0.1 * lightRingPower})`); // Warm golden aura
+          vignette.addColorStop(1, 'rgba(26, 18, 14, 0.35)'); // Professional dark brown-gold border
           ctx.fillStyle = vignette;
           ctx.fillRect(0, 0, width, height);
 
-          // 5. Ambient linear lighting reflection sweeps across the global camera frame
+          // B. Cat-Eye Specular Glis Refraction Sweep (diagonal light reflection inside the film)
           ctx.save();
-          const glintPosition = ratio * width * 2.5 - width;
-          const glintGrd = ctx.createLinearGradient(glintPosition, 0, glintPosition + 180, height);
+          const sweepPosition = catEyeSweep * width * 1.5 - width * 0.5;
+          const glintGrd = ctx.createLinearGradient(sweepPosition, 0, sweepPosition + 140, height);
           glintGrd.addColorStop(0, 'rgba(255, 255, 255, 0)');
-          glintGrd.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
+          glintGrd.addColorStop(0.35, 'rgba(255, 255, 255, 0.03)');
+          glintGrd.addColorStop(0.5, `rgba(255, 245, 225, ${0.15 * lightRingPower})`); // Brilliant high-end salon shimmer
+          glintGrd.addColorStop(0.65, 'rgba(255, 255, 255, 0.03)');
           glintGrd.addColorStop(1, 'rgba(255, 255, 255, 0)');
           ctx.fillStyle = glintGrd;
           ctx.fillRect(0, 0, width, height);
           ctx.restore();
 
-          // 6. Styled Luxury Brand frame at the bottom (fully static, steady watermark)
+          // 6. DYNAMIC OVERLAID ACTION BRAND BANNER (Showing current videography mode)
+          ctx.save();
+          // High-end translucent status strip
+          ctx.fillStyle = 'rgba(26, 18, 14, 0.6)';
+          ctx.beginPath();
+          ctx.roundRect(40, 40, 360, 36, 18);
+          ctx.fill();
+
+          ctx.fillStyle = '#FFEAB5';
+          ctx.font = 'bold 12px "Inter", sans-serif';
+          ctx.textAlign = 'left';
+          // Little blinking recording indicator
+          const binker = Math.floor(frame / 10) % 2 === 0 ? "●" : " ";
+          ctx.fillText(`${binker} REC | ${actionLabel}`, 60, 62);
+          ctx.restore();
+
+          // 7. STATIONARY LUXURY OUTSIDE BRAND FRAME AND WATERMARK
           ctx.save();
           const bannerGrd = ctx.createLinearGradient(0, height - 130, 0, height);
           bannerGrd.addColorStop(0, 'rgba(0, 0, 0, 0)');
-          bannerGrd.addColorStop(1, 'rgba(40, 30, 25, 0.75)'); // High contrast cinematic vignette bottom
+          bannerGrd.addColorStop(1, 'rgba(30, 20, 15, 0.8)'); // Cinematic ground shadow
           ctx.fillStyle = bannerGrd;
           ctx.fillRect(0, height - 130, width, 130);
 
-          // Watermark text styling
           ctx.fillStyle = '#FFFFFF';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
           ctx.shadowBlur = 6;
-          
-          ctx.font = 'bold 24px "Inter", sans-serif';
-          ctx.fillText('NailAI 美甲工作室', 40, height - 60);
-          
-          ctx.font = '500 16px "Inter", sans-serif';
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-          ctx.fillText('• 智创美甲 • 专属试戴 •', 40, height - 28);
 
-          // Elegant top badge
-          ctx.fillStyle = 'rgba(122, 91, 69, 0.85)'; // Warm bronze tone
+          ctx.font = 'bold 24px "Inter", sans-serif';
+          ctx.fillText('NailAI 美甲工作室', 40, height - 62);
+
+          ctx.font = '500 15px "Inter", sans-serif';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.fillText('• 智创视频生成 • 3D 拟态试戴特写 •', 40, height - 30);
+
+          // Top Elegant Right Stamp
+          ctx.fillStyle = 'rgba(122, 91, 69, 0.9)';
           ctx.beginPath();
           ctx.roundRect(width - 180, 40, 140, 36, 18);
           ctx.fill();
@@ -267,7 +323,7 @@ export default function VideoGenerator({ imageSrc, onClose }: VideoGeneratorProp
           ctx.fillStyle = '#FFFFFF';
           ctx.font = 'bold 12px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('VIRTUAL TRY-ON', width - 110, 62);
+          ctx.fillText('3D LIVE SHOW', width - 110, 62);
           ctx.restore();
 
           frame++;
