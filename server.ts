@@ -239,7 +239,13 @@ RULES:
 
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-image-preview",
-        contents: [{ role: 'user', parts: parts }]
+        contents: [{ role: 'user', parts: parts }],
+        config: {
+          imageConfig: {
+            aspectRatio: "9:16",
+            imageSize: "1K"
+          }
+        }
       });
 
       let resultImage = null;
@@ -272,12 +278,18 @@ RULES:
     try {
       const { imageBase64, prompt } = req.body;
       let cleanBase64 = imageBase64;
+      let imgMimeType = 'image/jpeg';
       
       if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
         // Fetch the image from URL and convert to Base64
         const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
         cleanBase64 = Buffer.from(imgRes.data).toString('base64');
+        imgMimeType = imgRes.headers['content-type'] || 'image/jpeg';
       } else if (imageBase64.includes(',')) {
+        const match = imageBase64.match(/^data:([^;]+);/);
+        if (match) {
+          imgMimeType = match[1];
+        }
         cleanBase64 = imageBase64.split(',')[1];
       }
 
@@ -286,7 +298,7 @@ RULES:
         prompt: prompt || 'An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its custom manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.',
         image: {
           imageBytes: cleanBase64,
-          mimeType: 'image/png',
+          mimeType: imgMimeType,
         },
         config: {
           numberOfVideos: 1,
