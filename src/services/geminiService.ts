@@ -53,16 +53,7 @@ export const generateVideoStart = async (imageBase64: string, prompt?: string) =
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64, prompt }),
   });
-  if (!response.ok) {
-    let errMsg = 'Failed to start video generation';
-    try {
-      const data = await response.json();
-      if (data && data.error) {
-        errMsg = data.error;
-      }
-    } catch (e) {}
-    throw new Error(errMsg);
-  }
+  if (!response.ok) throw new Error('Failed to start video generation');
   return response.json(); // { operationName }
 };
 
@@ -72,16 +63,7 @@ export const checkVideoStatus = async (operationName: string) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ operationName }),
   });
-  if (!response.ok) {
-    let errMsg = 'Failed to check video status';
-    try {
-      const data = await response.json();
-      if (data && data.error) {
-        errMsg = data.error;
-      }
-    } catch (e) {}
-    throw new Error(errMsg);
-  }
+  if (!response.ok) throw new Error('Failed to check video status');
   return response.json(); // { done }
 };
 
@@ -91,16 +73,7 @@ export const downloadVideoUrl = async (operationName: string) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ operationName }),
   });
-  if (!response.ok) {
-    let errMsg = 'Failed to download video';
-    try {
-      const data = await response.json();
-      if (data && data.error) {
-        errMsg = data.error;
-      }
-    } catch (e) {}
-    throw new Error(errMsg);
-  }
+  if (!response.ok) throw new Error('Failed to download video');
   const blob = await response.blob();
   return URL.createObjectURL(blob);
 };
