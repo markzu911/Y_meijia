@@ -195,26 +195,10 @@ const padImageForVeo = (base64Str: string): Promise<{ base64: string, wRatio: nu
       if (!ctx) return reject('No canvas context');
       
       const isPortrait = img.height > img.width;
-      let targetW, targetH;
       
-      // Veo strongly prefers 9:16 or 16:9
-      if (isPortrait) {
-        // Pad width to match 9:16 aspect ratio
-        targetH = img.height;
-        targetW = Math.round(targetH * (9 / 16));
-        if (targetW < img.width) {
-          targetW = img.width;
-          targetH = Math.round(targetW * (16 / 9));
-        }
-      } else {
-        // Pad height to match 16:9 aspect ratio
-        targetW = img.width;
-        targetH = Math.round(targetW * (9 / 16));
-        if (targetH < img.height) {
-          targetH = img.height;
-          targetW = Math.round(targetH * (16 / 9));
-        }
-      }
+      // Veo expects 720p resolution
+      const targetW = isPortrait ? 720 : 1280;
+      const targetH = isPortrait ? 1280 : 720;
       
       canvas.width = targetW;
       canvas.height = targetH;
@@ -223,10 +207,14 @@ const padImageForVeo = (base64Str: string): Promise<{ base64: string, wRatio: nu
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, targetW, targetH);
       
-      // Draw centered
-      const offsetX = (targetW - img.width) / 2;
-      const offsetY = (targetH - img.height) / 2;
-      ctx.drawImage(img, offsetX, offsetY);
+      // Draw centered with scaling
+      const scale = Math.min(targetW / img.width, targetH / img.height);
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const offsetX = (targetW - drawW) / 2;
+      const offsetY = (targetH - drawH) / 2;
+      
+      ctx.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawW, drawH);
       
       resolve({
         base64: canvas.toDataURL('image/jpeg', 0.95),
