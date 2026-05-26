@@ -228,7 +228,7 @@ function SmartRecTab() {
     
     try {
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
-      const videoPrompt = `A continuous, ultra-high-quality close-up 8-second video of a single elegant hand showcasing its manicure. For the first 4 seconds, the video strictly shows the front of the hand (the palm). Then, the hand smoothly executes a continuous 3D flipping motion to reveal the back of the hand. For the remaining 4 seconds, the video strictly shows the back of the hand, fully presenting the beautiful nails facing the camera. There are absolutely no sudden jumps, frame cuts, or morphing. The rotation is a natural physical flip of the wrist. Consistent hand shape, skin tone, and clear studio lighting.`;
+      const videoPrompt = `A continuous, ultra-high-quality close-up 8-second video showcasing a beautiful manicure. For the first 4 seconds, the video strictly shows the palm side of the elegant hand with the manicure (similar to the orientation of image 1). At the 4-second mark, the hand smoothly executes a natural 3D flipping rotation of the wrist to reveal the back of the hand. For the remaining 4 seconds, the hand is shown from the back, fully presenting the long elegant nails and custom manicure facing the camera (similar to the orientation of image 2). Throughout the entire video, there are subtle dynamic pulses and light rhythmic movements of the fingers to make the hand look lifelike, with absolutely no frame cuts, sudden jumps, or morphing. Consistent hand shape, skin tone, clear studio lighting, focusing entirely on showcasing the manicure.`;
       
       const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
       
@@ -628,7 +628,7 @@ function CustomTab() {
     
     try {
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
-      const videoPrompt = `A continuous, ultra-high-quality close-up 8-second video of a single elegant hand showcasing its custom manicure. For the first 4 seconds, the video strictly shows the front of the hand (the palm). Then, the hand smoothly executes a continuous 3D flipping motion to reveal the back of the hand. For the remaining 4 seconds, the video strictly shows the back of the hand, fully presenting the beautiful nails facing the camera. There are absolutely no sudden jumps, frame cuts, or morphing. The rotation is a natural physical flip of the wrist. Consistent hand shape, skin tone, and clear studio lighting.`;
+      const videoPrompt = `A continuous, ultra-high-quality close-up 8-second video showcasing a beautiful custom manicure. For the first 4 seconds, the video strictly shows the palm side of the elegant hand with the manicure (similar to the orientation of image 1). At the 4-second mark, the hand smoothly executes a natural 3D flipping rotation of the wrist to reveal the back of the hand. For the remaining 4 seconds, the hand is shown from the back, fully presenting the long elegant nails and custom manicure facing the camera (similar to the orientation of image 2). Throughout the entire video, there are subtle dynamic pulses and light rhythmic movements of the fingers to make the hand look lifelike, with absolutely no frame cuts, sudden jumps, or morphing. Consistent hand shape, skin tone, clear studio lighting, focusing entirely on showcasing the custom manicure.`;
       
       const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
       
