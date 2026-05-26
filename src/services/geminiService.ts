@@ -47,11 +47,11 @@ export const generateNailTryOn = async (
   return data.saasImage?.url || data.result;
 };
 
-export const generateVideoStart = async (imageBase64: string, prompt?: string, aspectRatio?: string) => {
+export const generateVideoStart = async (imageBase64: string, prompt?: string) => {
   const response = await fetch('/api/generate-video', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64, prompt, aspectRatio }),
+    body: JSON.stringify({ imageBase64, prompt }),
   });
   if (!response.ok) throw new Error('Failed to start video generation');
   return response.json(); // { operationName }

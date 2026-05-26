@@ -270,34 +270,28 @@ RULES:
 
   registerApi('post', "/api/generate-video", async (req, res) => {
     try {
-      const { imageBase64, prompt, aspectRatio } = req.body;
+      const { imageBase64, prompt } = req.body;
       let cleanBase64 = imageBase64;
-      let imgMimeType = 'image/jpeg';
       
       if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
         // Fetch the image from URL and convert to Base64
         const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
         cleanBase64 = Buffer.from(imgRes.data).toString('base64');
-        imgMimeType = imgRes.headers['content-type'] || 'image/jpeg';
       } else if (imageBase64.includes(',')) {
-        const match = imageBase64.match(/^data:([^;]+);/);
-        if (match) {
-          imgMimeType = match[1];
-        }
         cleanBase64 = imageBase64.split(',')[1];
       }
 
       const operation = await ai.models.generateVideos({
         model: 'veo-3.1-lite-generate-preview',
-        prompt: prompt || 'An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its custom manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.',
+        prompt: prompt || 'A high-quality close-up video of the hand showing off these beautiful fingernails. The hand is slowly rotating and flipping, showing the palm and back of the hand. Elegant finger movements are displayed. The background and lighting are fully consistent with the starting image. Cinematic and slow motion.',
         image: {
           imageBytes: cleanBase64,
-          mimeType: imgMimeType,
+          mimeType: 'image/png',
         },
         config: {
           numberOfVideos: 1,
           resolution: '720p',
-          aspectRatio: aspectRatio || '9:16'
+          aspectRatio: '9:16'
         }
       });
 

@@ -185,48 +185,6 @@ function ImageUpload({ image, onUpload, label }: { image: string | null; onUploa
   );
 }
 
-const padImageForVeo = (base64Str: string): Promise<{ base64: string, wRatio: number, hRatio: number }> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject('No canvas context');
-      
-      const isPortrait = img.height > img.width;
-      
-      // Veo expects 720p resolution
-      const targetW = isPortrait ? 720 : 1280;
-      const targetH = isPortrait ? 1280 : 720;
-      
-      canvas.width = targetW;
-      canvas.height = targetH;
-      
-      // Fill with black
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(0, 0, targetW, targetH);
-      
-      // Draw centered with scaling
-      const scale = Math.min(targetW / img.width, targetH / img.height);
-      const drawW = img.width * scale;
-      const drawH = img.height * scale;
-      const offsetX = (targetW - drawW) / 2;
-      const offsetY = (targetH - drawH) / 2;
-      
-      ctx.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawW, drawH);
-      
-      resolve({
-        base64: canvas.toDataURL('image/jpeg', 0.95),
-        wRatio: isPortrait ? 9 : 16,
-        hRatio: isPortrait ? 16 : 9
-      });
-    };
-    img.onerror = (e) => reject(e);
-    img.src = base64Str;
-  });
-};
-
 function SmartRecTab() {
   const saas = useContext(SaasContext);
   const [handImage, setHandImage] = useState<{ url: string; file: File } | null>(null);
@@ -266,14 +224,13 @@ function SmartRecTab() {
   const triggerVideoGeneration = async (imageBase64: string, styleDetails: string) => {
     setVideoLoading(true);
     setVideoError(null);
-    setVideoStep('✨ 正在对图像进行适配...');
+    setVideoStep('✨ 正在融合您的试戴款式...');
     
     try {
-      const paddedImage = await padImageForVeo(imageBase64);
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
-      const videoPrompt = `An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.`;
+      const videoPrompt = `A continuous, ultra-high-quality close-up video of a single elegant hand showcasing its manicure. Starting from the hand showing the beautiful back of the fingers (with nails facing the camera), the wrist and hand slowly, smoothly, and continuously rotate over in a single unbroken 3D physical movement to fully flip the hand and show the palm, then smoothly turn back to show the nails again. The rotation is a gradual, step-by-step 180-degree roll showing the side profile of fingers turning in mid-air. There are absolutely no sudden jumps, frame cuts, or morphing between the back of the hand and the palm. The fingers bend gracefully in slow motion. Consistent hand shape, skin tone, clear studio lighting.`;
       
-      const { operationName } = await generateVideoStart(paddedImage.base64, videoPrompt, `${paddedImage.wRatio}:${paddedImage.hRatio}`);
+      const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
       
       let attempts = 0;
       const maxAttempts = 120; // 10 mins limit
@@ -667,14 +624,13 @@ function CustomTab() {
   const triggerVideoGeneration = async (imageBase64: string, styleDetails: string) => {
     setVideoLoading(true);
     setVideoError(null);
-    setVideoStep('✨ 正在对图片进行适配...');
+    setVideoStep('✨ 正在融合您的自定义试戴款式...');
     
     try {
-      const paddedImage = await padImageForVeo(imageBase64);
       setVideoStep('🎨 启动 Gemini Veo 视频生成任务...');
-      const videoPrompt = `An ultra-high-quality, continuous 8-second video of a single elegant hand showcasing its custom manicure. For the first 4 seconds, the hand exhibits the beautiful back of the hand (nail-art/manicure side facing the camera) with elegant finger adjustments to highlight the shine. Then, a highly natural and realistic 180-degree continuous hand-flip occurs as the wrist rotates smoothly. For the remaining 4 seconds, the hand is completely turned around to showcase the palm of the hand facing the camera, with graceful finger flexing. Absolute physics consistency, smooth rotation, no sudden frame cuts, and perfectly matching skin tone and background throughout the 3D movement.`;
+      const videoPrompt = `A continuous, ultra-high-quality close-up video of a single elegant hand showcasing its custom manicure. Starting from the hand showing the beautiful back of the fingers (with nails facing the camera), the wrist and hand slowly, smoothly, and continuously rotate over in a single unbroken 3D physical movement to fully flip the hand and show the palm, then smoothly turn back to show the nails again. The rotation is a gradual, step-by-step 180-degree roll showing the side profile of fingers turning in mid-air. There are absolutely no sudden jumps, frame cuts, or morphing between the back of the hand and the palm. The fingers bend gracefully in slow motion. Consistent hand shape, skin tone, clear studio lighting.`;
       
-      const { operationName } = await generateVideoStart(paddedImage.base64, videoPrompt, `${paddedImage.wRatio}:${paddedImage.hRatio}`);
+      const { operationName } = await generateVideoStart(imageBase64, videoPrompt);
       
       let attempts = 0;
       const maxAttempts = 120; // 10 mins limit
