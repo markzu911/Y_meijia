@@ -192,23 +192,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (path.endsWith("/api/generate-video")) {
     try {
       const { imageBase64, prompt } = req.body;
-      if (!imageBase64) {
-        return res.status(400).json({ error: "imageBase64 is required" });
-      }
-
       let cleanBase64 = imageBase64;
-      let mimeType = 'image/png';
       
       if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
         const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
-        const contentType = imgRes.headers['content-type'];
-        if (!contentType || !contentType.startsWith('image/')) {
-          return res.status(400).json({ error: `URL did not return an image. Content-Type: ${contentType}` });
-        }
-        mimeType = contentType;
         cleanBase64 = Buffer.from(imgRes.data).toString('base64');
-      } else if (imageBase64.startsWith('data:') && imageBase64.includes(',')) {
-        mimeType = imageBase64.split(';')[0].split(':')[1] || 'image/png';
+      } else if (imageBase64.includes(',')) {
         cleanBase64 = imageBase64.split(',')[1];
       }
 
@@ -217,7 +206,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         prompt: prompt || 'A high-quality close-up video of the hand showing off these beautiful fingernails. The hand is slowly rotating and flipping, showing the palm and back of the hand. Elegant finger movements are displayed. The background and lighting are fully consistent with the starting image. Cinematic and slow motion.',
         image: {
           imageBytes: cleanBase64,
-          mimeType: mimeType,
+          mimeType: 'image/png',
         },
         config: {
           numberOfVideos: 1,
@@ -228,8 +217,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return res.status(200).json({ operationName: operation.name });
     } catch (e: any) {
-      console.error('Error starting video generation:', e.response?.data || e.message || e);
-      return res.status(e.response?.status || 500).json({ error: e.message, details: e.response?.data || e });
+      console.error('Error starting video generation:', e);
+      return res.status(500).json({ error: e.message });
     }
   }
 

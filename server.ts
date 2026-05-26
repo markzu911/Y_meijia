@@ -271,25 +271,13 @@ RULES:
   registerApi('post', "/api/generate-video", async (req, res) => {
     try {
       const { imageBase64, prompt } = req.body;
-      if (!imageBase64) {
-        res.status(400).json({ error: "imageBase64 is required" });
-        return;
-      }
-
       let cleanBase64 = imageBase64;
-      let mimeType = 'image/png';
       
       if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
+        // Fetch the image from URL and convert to Base64
         const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
-        const contentType = imgRes.headers['content-type'];
-        if (!contentType || !contentType.startsWith('image/')) {
-          res.status(400).json({ error: `URL did not return an image. Content-Type: ${contentType}` });
-          return;
-        }
-        mimeType = contentType;
         cleanBase64 = Buffer.from(imgRes.data).toString('base64');
-      } else if (imageBase64.startsWith('data:') && imageBase64.includes(',')) {
-        mimeType = imageBase64.split(';')[0].split(':')[1] || 'image/png';
+      } else if (imageBase64.includes(',')) {
         cleanBase64 = imageBase64.split(',')[1];
       }
 
@@ -298,7 +286,7 @@ RULES:
         prompt: prompt || 'A high-quality close-up video of the hand showing off these beautiful fingernails. The hand is slowly rotating and flipping, showing the palm and back of the hand. Elegant finger movements are displayed. The background and lighting are fully consistent with the starting image. Cinematic and slow motion.',
         image: {
           imageBytes: cleanBase64,
-          mimeType: mimeType,
+          mimeType: 'image/png',
         },
         config: {
           numberOfVideos: 1,
@@ -309,8 +297,8 @@ RULES:
 
       res.json({ operationName: operation.name });
     } catch (error: any) {
-      console.error('Error starting video generation:', error.response?.data || error.message || error);
-      res.status(error.response?.status || 500).json({ error: error.message, details: error.response?.data || error });
+      console.error('Error starting video generation:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 

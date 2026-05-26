@@ -47,31 +47,13 @@ export const generateNailTryOn = async (
   return data.saasImage?.url || data.result;
 };
 
-const handleResponseError = async (response: Response, defaultMessage: string) => {
-  if (!response.ok) {
-    let errorMessage = defaultMessage;
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.error || errorData.message || JSON.stringify(errorData) || defaultMessage;
-    } catch {
-      try {
-        const errorText = await response.text();
-        if (errorText) errorMessage = errorText;
-      } catch {
-        // use default
-      }
-    }
-    throw new Error(`[${response.status}] ${errorMessage}`);
-  }
-};
-
 export const generateVideoStart = async (imageBase64: string, prompt?: string) => {
   const response = await fetch('/api/generate-video', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageBase64, prompt }),
   });
-  await handleResponseError(response, 'Failed to start video generation');
+  if (!response.ok) throw new Error('Failed to start video generation');
   return response.json(); // { operationName }
 };
 
@@ -81,7 +63,7 @@ export const checkVideoStatus = async (operationName: string) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ operationName }),
   });
-  await handleResponseError(response, 'Failed to check video status');
+  if (!response.ok) throw new Error('Failed to check video status');
   return response.json(); // { done }
 };
 
@@ -91,7 +73,7 @@ export const downloadVideoUrl = async (operationName: string) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ operationName }),
   });
-  await handleResponseError(response, 'Failed to download video');
+  if (!response.ok) throw new Error('Failed to download video');
   const blob = await response.blob();
   return URL.createObjectURL(blob);
 };
