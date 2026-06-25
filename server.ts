@@ -281,7 +281,7 @@ RULES:
       
       if (imageBase64.startsWith('http://') || imageBase64.startsWith('https://')) {
         const imgRes = await axios.get(imageBase64, { responseType: 'arraybuffer' });
-        const contentType = imgRes.headers['content-type'];
+        const contentType = String(imgRes.headers['content-type'] || '');
         if (!contentType || !contentType.startsWith('image/')) {
           res.status(400).json({ error: `URL did not return an image. Content-Type: ${contentType}` });
           return;
