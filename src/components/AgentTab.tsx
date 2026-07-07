@@ -88,7 +88,6 @@ function ChatMessageItem({
 
   // If agent image message, it's the custom design generation result
   if (msg.type === 'image' && isAgent) {
-    const isLatest = msg.content === resultImage;
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -107,148 +106,35 @@ function ChatMessageItem({
             </span>
           </div>
 
-          {/* Sub-tab selection */}
-          <div className="flex bg-[#FAF8F5] p-1 rounded-xl w-full max-w-[280px]">
-            <button
-              onClick={() => setCardTab('image')}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                cardTab === 'image'
-                  ? 'bg-[#9C7A63] text-white shadow-xs'
-                  : 'text-[#968F85] hover:text-[#696158]'
-              }`}
-            >
-              <ImageIcon size={14} />
-              效果图
-            </button>
-            <button
-              onClick={() => {
-                setCardTab('video');
-                // Auto trigger video generation if not loaded or loading, and it is latest
-                if (isLatest && !videoUrl && !videoLoading && !videoError) {
-                  triggerVideoGeneration(msg.content!, selectedStyle || 'Manicure');
-                }
-              }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 relative cursor-pointer ${
-                cardTab === 'video'
-                  ? 'bg-[#9C7A63] text-white shadow-xs'
-                  : 'text-[#968F85] hover:text-[#696158]'
-              }`}
-            >
-              <Sparkles size={14} className={isLatest && videoLoading ? "animate-spin text-white" : "text-amber-500"} />
-              3D 旋转展示
-            </button>
+          <div className="space-y-3">
+            <div className="relative group max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-inner bg-stone-50 border border-stone-200">
+              <img
+                src={msg.content}
+                alt="Generated Try-on"
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => setEnlargedImage(msg.content || null)}
+              />
+              <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const a = document.createElement('a');
+                    a.href = msg.content!;
+                    a.download = `nail-result-${Date.now()}.png`;
+                    a.click();
+                  }}
+                  className="bg-white/95 hover:bg-white text-[#696158] hover:text-[#7A5B45] p-2 rounded-full shadow-md transition-all cursor-pointer"
+                  title="下载图片"
+                >
+                  <Download size={14} />
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-[#968F85] bg-[#FAF8F5] px-3 py-2 rounded-xl">
+              <span>画面比例: <span className="font-semibold text-[#4A443D]">{aspectRatio}</span></span>
+              <span>清晰度: <span className="font-semibold text-[#4A443D]">{resolution}</span></span>
+            </div>
           </div>
-
-          {cardTab === 'image' ? (
-            <div className="space-y-3">
-              <div className="relative group max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-inner bg-stone-50 border border-stone-200">
-                <img
-                  src={msg.content}
-                  alt="Generated Try-on"
-                  className="w-full h-full object-cover cursor-pointer"
-                  onClick={() => setEnlargedImage(msg.content || null)}
-                />
-                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const a = document.createElement('a');
-                      a.href = msg.content!;
-                      a.download = `nail-result-${Date.now()}.png`;
-                      a.click();
-                    }}
-                    className="bg-white/95 hover:bg-white text-[#696158] hover:text-[#7A5B45] p-2 rounded-full shadow-md transition-all cursor-pointer"
-                    title="下载图片"
-                  >
-                    <Download size={14} />
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-xs text-[#968F85] bg-[#FAF8F5] px-3 py-2 rounded-xl">
-                <span>画面比例: <span className="font-semibold text-[#4A443D]">{aspectRatio}</span></span>
-                <span>清晰度: <span className="font-semibold text-[#4A443D]">{resolution}</span></span>
-              </div>
-            </div>
-          ) : (
-            <div className="max-w-sm w-full">
-              {isLatest ? (
-                videoLoading ? (
-                  <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] flex flex-col items-center gap-3">
-                    <div className="relative">
-                      <Loader2 className="animate-spin text-[#9C7A63]" size={28} />
-                      <Sparkles className="absolute -top-1 -right-1 text-amber-500 animate-pulse" size={12} />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="font-semibold text-xs text-[#4A443D]">{videoStep}</p>
-                      <p className="text-[10px] text-[#968F85] leading-relaxed">
-                        3D 旋转展示视频正在由 Gemini Veo 模型深度渲染中，大约需要一分钟左右，您可以继续在此聊天...
-                      </p>
-                    </div>
-                  </div>
-                ) : videoError ? (
-                  <div className="text-center p-6 bg-red-50/50 rounded-2xl border border-red-100 flex flex-col items-center gap-3">
-                    <AlertCircle className="text-red-500" size={24} />
-                    <p className="text-xs font-semibold text-red-700">{videoError}</p>
-                    <button
-                      onClick={() => triggerVideoGeneration(msg.content!, selectedStyle || 'Manicure')}
-                      className="px-4 py-2 bg-[#9C7A63] hover:bg-[#856550] text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    >
-                      重新生成 3D 视频
-                    </button>
-                  </div>
-                ) : videoUrl ? (
-                  <div className="space-y-3">
-                    <div className="relative group max-w-sm aspect-[3/4] rounded-2xl overflow-hidden shadow-inner bg-stone-900 border border-stone-200">
-                      <video
-                        src={videoUrl}
-                        className="w-full h-full object-cover"
-                        controls
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                      />
-                      <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const a = document.createElement('a');
-                            a.href = videoUrl;
-                            a.download = `nail-video-${Date.now()}.mp4`;
-                            a.click();
-                          }}
-                          className="bg-white/95 hover:bg-white text-[#696158] hover:text-[#7A5B45] p-2 rounded-full shadow-md transition-all cursor-pointer"
-                          title="下载视频"
-                        >
-                          <Download size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-[10px] text-center text-[#968F85]">
-                      🎥 点击播放器可控制播放，支持全屏及 3D 指尖光影互动
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] flex flex-col items-center gap-3">
-                    <Sparkles className="text-amber-500 animate-pulse" size={28} />
-                    <p className="text-xs font-semibold text-[#4A443D]">未检测到已渲染视频</p>
-                    <button
-                      onClick={() => triggerVideoGeneration(msg.content!, selectedStyle || 'Manicure')}
-                      className="px-4 py-2 bg-[#9C7A63] hover:bg-[#856550] text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    >
-                      一键启动 3D 视频渲染
-                    </button>
-                  </div>
-                )
-              ) : (
-                <div className="text-center p-6 bg-[#FAF8F5] rounded-2xl border border-[#EAE6DF] flex flex-col items-center gap-2">
-                  <p className="text-xs text-[#968F85] leading-relaxed">
-                    只支持实时渲染和查看最新生成的 3D 美甲试戴视频。
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </motion.div>
     );
@@ -642,7 +528,10 @@ export default function AgentTab({
         setSelectedStyle(style);
         setAdditionalPrompt('');
         addMessage('agent', 'text', `好的，已为您切换为 [${style}] 款式。`);
-        await handleGenerate('');
+        const res = await handleGenerate('', style, null);
+        if (!res.success) {
+          addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
+        }
         return;
       }
       // Custom style
@@ -650,7 +539,10 @@ export default function AgentTab({
       setSelectedStyle('custom');
       setAdditionalPrompt(trimmed);
       addMessage('agent', 'text', `好的，已为您切换为自定义款式：[${trimmed}]。`);
-      await handleGenerate(trimmed);
+      const res = await handleGenerate(trimmed, 'custom', null);
+      if (!res.success) {
+        addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
+      }
       return;
     }
 

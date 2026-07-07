@@ -183,12 +183,19 @@ export default function App() {
     }
   };
 
-  const handleGenerate = async (additionalPrompt?: string) => {
+  const handleGenerate = async (
+    additionalPrompt?: string,
+    styleOverride?: string,
+    nailImageOverride?: any | null
+  ) => {
     if (!handImage) return { success: false, error: "请上传手部底图。" };
 
-    const isCustom = !!nailImage;
-    if (isCustom && !nailImage) return { success: false, error: "请上传参考图。" };
-    if (!isCustom && !selectedStyle) return { success: false, error: "请选择一个款式。" };
+    const actualNailImage = nailImageOverride !== undefined ? nailImageOverride : nailImage;
+    const actualSelectedStyle = styleOverride !== undefined ? styleOverride : selectedStyle;
+
+    const isCustom = !!actualNailImage;
+    if (isCustom && !actualNailImage) return { success: false, error: "请上传参考图。" };
+    if (!isCustom && !actualSelectedStyle) return { success: false, error: "请选择一个款式。" };
 
     // Integral Verify
     if (userId && toolId) {
@@ -210,8 +217,8 @@ export default function App() {
       let refMimeType: string | undefined = undefined;
       let styleDescription = '';
 
-      if (isCustom) {
-        const fileData = await fileToBase64(nailImage.file);
+      if (isCustom && actualNailImage) {
+        const fileData = await fileToBase64(actualNailImage.file);
         refBase64 = fileData.base64;
         refMimeType = fileData.mimeType;
         
@@ -219,7 +226,7 @@ export default function App() {
         styleDescription = `Nail Shape & Length: ${nailAnalysis.length}. Base Color: ${nailAnalysis.color}. Material/Texture: ${nailAnalysis.material}. 3D Decorations & Patterns: ${nailAnalysis.details}.`;
         promptText = styleDescription;
       } else {
-        styleDescription = STYLE_PROMPTS[selectedStyle] || `Apply ${selectedStyle} style nails`;
+        styleDescription = STYLE_PROMPTS[actualSelectedStyle] || `Apply ${actualSelectedStyle} style nails`;
         promptText = `Strictly generate the nails with the following exact specifications: ${styleDescription}. The result MUST perfectly match this description.`;
       }
 
@@ -241,8 +248,10 @@ export default function App() {
         setTimeout(() => refreshIntegral(userId, toolId), 1000);
       }
 
-      // Synchronously trigger video generation in background
-      triggerVideoGeneration(result, styleDescription);
+      // Synchronously trigger video generation in background (only if not in agent mode)
+      if (viewMode !== 'agent') {
+        triggerVideoGeneration(result, styleDescription);
+      }
       return { success: true, result };
     } catch (error: any) {
       console.error(error);
