@@ -518,26 +518,75 @@ export default function AgentTab({
         return;
     }
 
-    // 1. Check change reference
-    if (/换.*衣服|换.*服装|换.*美甲|换.*款式|换.*参考|换.*图|换.*参照|换参照|换.*(猫眼|法式|渐变|纯色|装饰|手绘)/.test(trimmed)) {
-      const styleMatch = trimmed.match(/(猫眼|法式|渐变|纯色|装饰|手绘)/);
-      if (styleMatch) {
-        const style = styleMatch[1];
-        setNailImage(null);
-        setSelectedStyle(style);
-        setAdditionalPrompt('');
-        addMessage('agent', 'text', `好的，已为您切换为 [${style}] 款式。`);
+    // 1. Check for "Use existing reference image to generate" (根据参考图生成 / 用参考图 / 使用参考图)
+    const isUseRefImage = /(根据|使用|用|换成根据|切换到).*参考图/.test(trimmed) || /参考图.*生成/.test(trimmed) || /上传的图.*生成/.test(trimmed);
+    if (isUseRefImage) {
+      if (nailImage) {
+        setSelectedStyle('custom');
+        addMessage('agent', 'text', "好的，已为您切换为使用已上传的参考图进行生成！");
         addMessage('agent', 'text', "🚀 正在为您拼合并生成美甲虚拟试戴图，请稍后...");
-        const res = await handleGenerate('', style, null);
+        const res = await handleGenerate('', 'custom', nailImage);
         if (res.success && res.result) {
           addMessage('agent', 'text', "🎉 生成成功！美甲虚拟试戴效果非常惊艳，图片已显示！");
           addMessage('agent', 'image', res.result);
         } else {
-          addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
+          addMessage('agent', 'text', `抱歉，生成失败：${res.error}`);
         }
-        return;
+      } else {
+        addMessage('agent', 'text', "好的，请点击下方按钮先上传您想要参考的美甲图片，上传后我们将自动为您进行识别 and 虚拟试戴！");
+        addMessage('agent', 'action', '', 'upload_nail');
       }
-      // Custom style
+      return;
+    }
+
+    // 2. Check for "Replace / Re-upload reference image" (更换/重传参考图)
+    const isReplaceRefImage = /换.*(参考图|美甲图|设计图|样品图|上传的图|参考图片)|更换参考图|重传参考图|重新上传参考图/.test(trimmed);
+    if (isReplaceRefImage) {
+      setNailImage(null);
+      addMessage('agent', 'text', "好的，已为您重置参考图！请上传您想要作为参考的美甲款式图片。");
+      addMessage('agent', 'action', '', 'upload_nail');
+      return;
+    }
+
+    // 3. Check for "Replace / Re-upload hand image" (更换/重传手部底图)
+    const isReplaceHandImage = /换.*(主体|宠物|猫|狗|手|底图)|更换底图|重传底图|更换手部|重新上传手部/.test(trimmed);
+    if (isReplaceHandImage) {
+      setHandImage(null);
+      setAnalysis(null);
+      addMessage('agent', 'text', "好的，已为您重置手部照片！请重新上传您的手部照片。");
+      addMessage('agent', 'action', '', 'upload_hand');
+      return;
+    }
+
+    // 4. Reset all
+    if (/重新|重来|全换/.test(trimmed)) {
+      addMessage('agent', 'text', "收到，正在为您重置全部数据并重新开启对话...");
+      handleNewConversation();
+      return;
+    }
+
+    // 5. Preset style matching (猫眼|法式|渐变|纯色|装饰|手绘)
+    const styleMatch = trimmed.match(/(猫眼|法式|渐变|纯色|装饰|手绘)/);
+    if (styleMatch) {
+      const style = styleMatch[1];
+      setNailImage(null);
+      setSelectedStyle(style);
+      setAdditionalPrompt('');
+      addMessage('agent', 'text', `好的，已为您切换为 [${style}] 款式。`);
+      addMessage('agent', 'text', "🚀 正在为您拼合并生成美甲虚拟试戴图，请稍后...");
+      const res = await handleGenerate('', style, null);
+      if (res.success && res.result) {
+        addMessage('agent', 'text', "🎉 生成成功！美甲虚拟试戴效果非常惊艳，图片已显示！");
+        addMessage('agent', 'image', res.result);
+      } else {
+        addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
+      }
+      return;
+    }
+
+    // 6. Custom text-based style change (e.g. "换成粉色带闪粉的", "我要换成亮片美甲")
+    const isCustomStyleChange = /^(换成|切换为|做成|变成|我要|想要|改成|生成一款|制作一款)/.test(trimmed) || /款式|风格/.test(trimmed);
+    if (isCustomStyleChange) {
       setNailImage(null);
       setSelectedStyle('custom');
       setAdditionalPrompt(trimmed);
@@ -550,22 +599,6 @@ export default function AgentTab({
       } else {
         addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
       }
-      return;
-    }
-
-    // 2. Check change subject / hand
-    if (/换.*主体|换.*宠物|换.*猫|换.*狗|换.*手|换.*底图|换底图/.test(trimmed)) {
-      setHandImage(null);
-      setAnalysis(null);
-      addMessage('agent', 'text', "好的，已为您重置手部照片！请重新上传您的手部照片。");
-      addMessage('agent', 'action', '', 'upload_hand');
-      return;
-    }
-
-    // 3. Reset all
-    if (/重新|重来|全换/.test(trimmed)) {
-      addMessage('agent', 'text', "收到，正在为您重置全部数据并重新开启对话...");
-      handleNewConversation();
       return;
     }
 
