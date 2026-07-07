@@ -472,7 +472,6 @@ export default function AgentTab({
     if (res.success && res.result) {
       addMessage('agent', 'text', "🎉 生成成功！美甲虚拟试戴效果非常惊艳，图片已显示！");
       addMessage('agent', 'image', res.result);
-      addMessage('agent', 'text', "🎬 我们已自动在后台为您开启 3D 手部旋转展示视频渲染任务。预计需 1-2 分钟。您可以在右侧预览面板中留意 3D 视频的加载状态 ✨");
     } else {
       addMessage('agent', 'error', `生成失败：${res.error || '未知错误，请检查积分余额并重试'}`);
       addMessage('agent', 'action', '', 'confirm_generate');
@@ -528,8 +527,12 @@ export default function AgentTab({
         setSelectedStyle(style);
         setAdditionalPrompt('');
         addMessage('agent', 'text', `好的，已为您切换为 [${style}] 款式。`);
+        addMessage('agent', 'text', "🚀 正在为您拼合并生成美甲虚拟试戴图，请稍后...");
         const res = await handleGenerate('', style, null);
-        if (!res.success) {
+        if (res.success && res.result) {
+          addMessage('agent', 'text', "🎉 生成成功！美甲虚拟试戴效果非常惊艳，图片已显示！");
+          addMessage('agent', 'image', res.result);
+        } else {
           addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
         }
         return;
@@ -539,8 +542,12 @@ export default function AgentTab({
       setSelectedStyle('custom');
       setAdditionalPrompt(trimmed);
       addMessage('agent', 'text', `好的，已为您切换为自定义款式：[${trimmed}]。`);
+      addMessage('agent', 'text', "🚀 正在为您拼合并生成美甲虚拟试戴图，请稍后...");
       const res = await handleGenerate(trimmed, 'custom', null);
-      if (!res.success) {
+      if (res.success && res.result) {
+        addMessage('agent', 'text', "🎉 生成成功！美甲虚拟试戴效果非常惊艳，图片已显示！");
+        addMessage('agent', 'image', res.result);
+      } else {
         addMessage('agent', 'text', `抱歉，切换失败：${res.error}`);
       }
       return;
