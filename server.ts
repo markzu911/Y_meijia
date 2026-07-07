@@ -56,7 +56,6 @@ async function startServer() {
   // Support potential path prefixes from SaaS platform proxy (e.g. /ai-tool/{toolId}/api/...)
   const registerApi = (method: 'get' | 'post' | 'delete', path: string, handler: any) => {
     app[method](path, handler);
-    app[method](`*/${path.replace(/^\//, '')}`, handler);
   };
 
   registerApi('post', "/api/tool/launch", (req, res) => proxyRequest(req, res, "/api/tool/launch"));
@@ -189,6 +188,7 @@ async function startServer() {
   });
 
   registerApi('post', "/api/chat", async (req, res) => {
+    console.log('Received request for /api/chat');
     try {
       const { messages } = req.body;
       const chat = ai.chats.create({
