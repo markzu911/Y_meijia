@@ -642,6 +642,7 @@ export default function AgentTab({
         setSelectedStyle(style);
         setAdditionalPrompt('');
         addMessage('agent', 'text', `好的，已为您切换为 [${style}] 款式。`);
+        await handleGenerate('');
         return;
       }
       // Custom style
@@ -649,6 +650,7 @@ export default function AgentTab({
       setSelectedStyle('custom');
       setAdditionalPrompt(trimmed);
       addMessage('agent', 'text', `好的，已为您切换为自定义款式：[${trimmed}]。`);
+      await handleGenerate(trimmed);
       return;
     }
 
@@ -672,12 +674,8 @@ export default function AgentTab({
     const ratioMatch = trimmed.match(/(16:9|9:16|1:1|3:4|4:3)/);
     if (ratioMatch) {
       const val = ratioMatch[1];
-      if (val === '3:4' || val === '4:3') {
-        addMessage('agent', 'text', `收到！建议使用 1:1、16:9 或 9:16 以获得最佳试戴和 3D 视频效果。我们将使用标准 ${aspectRatio} 进行生成。`);
-      } else {
-        setAspectRatio(val as any);
-        addMessage('agent', 'text', `已为您将比例调整为 [${val}]`);
-      }
+      setAspectRatio(val as any);
+      addMessage('agent', 'text', `已为您将比例调整为 [${val}]`);
       return;
     }
 
@@ -860,8 +858,8 @@ export default function AgentTab({
                           <span className="text-[10px] font-bold text-[#B0A9A0] uppercase tracking-wider block mb-2">
                             画面比例 (Aspect Ratio)
                           </span>
-                          <div className="grid grid-cols-3 gap-2">
-                            {(['1:1', '16:9', '9:16'] as const).map((ratio) => (
+                          <div className="grid grid-cols-5 gap-2">
+                            {(['1:1', '16:9', '9:16', '4:3', '3:4'] as const).map((ratio) => (
                               <button
                                 key={ratio}
                                 onClick={() => setAspectRatio(ratio)}
