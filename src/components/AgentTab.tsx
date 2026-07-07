@@ -634,7 +634,7 @@ export default function AgentTab({
     }
 
     // 1. Check change reference
-    if (/换.*衣服|换.*服装|换.*美甲|换.*款式|换.*参考|换.*图|换.*参照|换参照/.test(trimmed)) {
+    if (/换.*衣服|换.*服装|换.*美甲|换.*款式|换.*参考|换.*图|换.*参照|换参照|换.*(猫眼|法式|渐变|纯色|装饰|手绘)/.test(trimmed)) {
       const styleMatch = trimmed.match(/(猫眼|法式|渐变|纯色|装饰|手绘)/);
       if (styleMatch) {
         const style = styleMatch[1];
