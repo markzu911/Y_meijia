@@ -95,3 +95,13 @@ export const downloadVideoUrl = async (operationName: string) => {
   const blob = await response.blob();
   return URL.createObjectURL(blob);
 };
+
+export const chatWithAgent = async (messages: { role: string; content: string }[]) => {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages }),
+  });
+  if (!response.ok) throw new Error('Failed to chat with agent');
+  return response.json();
+};

@@ -188,6 +188,21 @@ async function startServer() {
     }
   });
 
+  registerApi('post', "/api/chat", async (req, res) => {
+    try {
+      const { messages } = req.body;
+      const chat = ai.chats.create({
+        model: "gemini-3.1-flash-preview",
+        history: messages.slice(0, -1).map((m: any) => ({ role: m.role, parts: [{ text: m.content }] }))
+      });
+      const response = await chat.sendMessage(messages[messages.length - 1].content);
+      res.json({ response: response.text });
+    } catch (error: any) {
+      console.error('Error chatting with agent:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   registerApi('post', "/api/generate-nail-try-on", async (req, res) => {
     try {
       const { handImageBase64, handImageMimeType, prompt, referenceImageBase64, referenceImageMimeType, userId, toolId } = req.body;
