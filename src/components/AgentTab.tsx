@@ -277,6 +277,11 @@ export default function AgentTab({
     }
   }, []);
 
+  const isGeneratingRef = useRef(isGenerating);
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
+
   // Sync state-machine when switching views or after deep changes
   const syncChatWithStates = () => {
     const newHistory: ChatMessage[] = [];
@@ -510,6 +515,19 @@ export default function AgentTab({
     const trimmed = inputText.trim();
     setInputText('');
     addMessage('user', 'text', trimmed);
+
+    if (isGeneratingRef.current) {
+      if (/停止|取消|中断|别生成|不要生成/.test(trimmed)) {
+        setIsGenerating(false);
+        addMessage('agent', 'text', "好的，已为您尝试取消当前的生成等待，您可以继续向我发送其他要求。");
+        return;
+      } else {
+        // Wait until generation is finished before answering
+        while (isGeneratingRef.current) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
 
     // 0. Check Integral
     const verifyRes = await saasVerify(userId, toolId);
