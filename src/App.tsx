@@ -197,7 +197,6 @@ export default function App() {
     if (isCustom && !actualNailImage) return { success: false, error: "请上传参考图。" };
     if (!isCustom && !actualSelectedStyle) return { success: false, error: "请选择一个款式。" };
 
-    // Integral Verify
     if (userId && toolId) {
       const verify = await saasVerify(userId, toolId);
       if (!verify.success) {

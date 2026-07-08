@@ -514,7 +514,7 @@ export default function AgentTab({
     // 0. Check Integral
     const verifyRes = await saasVerify(userId, toolId);
     if (!verifyRes.success || (verifyRes.data && verifyRes.data.currentIntegral < verifyRes.data.requiredIntegral)) {
-        addMessage('agent', 'text', "抱歉，您的积分不足，无法继续对话。请先获取更多积分。");
+        addMessage('agent', 'text', "抱歉，您的可用额度不足，无法继续对话。");
         return;
     }
 
@@ -657,7 +657,7 @@ export default function AgentTab({
           setIntegral(consumeRes.data.currentIntegral);
           addMessage('agent', 'text', response.response);
       } else {
-          addMessage('agent', 'text', "积分扣除失败，请稍后再试。");
+          addMessage('agent', 'text', "请求处理失败，请稍后再试。");
       }
     } catch (error) {
       addMessage('agent', 'text', "抱歉，刚才连接有点问题，能再说一次吗？");
