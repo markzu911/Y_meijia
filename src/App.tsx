@@ -200,7 +200,7 @@ export default function App() {
     if (userId && toolId) {
       const verify = await saasVerify(userId, toolId);
       if (!verify.success) {
-        return { success: false, error: verify.message || "积分不足" };
+        return { success: false, error: verify.message || "额度不足" };
       }
     }
 

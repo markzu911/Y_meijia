@@ -462,7 +462,7 @@ export default function AgentTab({
 
   const handleConfirmParameters = () => {
     addMessage('user', 'text', `已确认参数：比例 [${aspectRatio}]，清晰度 [${resolution}]`);
-    addMessage('agent', 'text', `一切准备就绪！本次生成将消耗 10 积分。\n\n如果您有其他特定的文字补充要求（例如："添加些许闪粉"或"款式低调一些"），可以直接在下方输入框中发消息告诉我。\n\n准备好后，请点击下方按钮开始试戴生成。`);
+    addMessage('agent', 'text', `一切准备就绪！\n\n如果您有其他特定的文字补充要求（例如："添加些许闪粉"或"款式低调一些"），可以直接在下方输入框中发消息告诉我。\n\n准备好后，请点击下方按钮开始试戴生成。`);
     addMessage('agent', 'action', '', 'confirm_generate');
   };
 
@@ -473,7 +473,7 @@ export default function AgentTab({
       addMessage('agent', 'text', "🎉 生成成功！美甲虚拟试戴效果非常惊艳，图片已显示！");
       addMessage('agent', 'image', res.result);
     } else {
-      addMessage('agent', 'error', `生成失败：${res.error || '未知错误，请检查积分余额并重试'}`);
+      addMessage('agent', 'error', `生成失败：${res.error || '未知错误，请重试'}`);
       addMessage('agent', 'action', '', 'confirm_generate');
     }
   };
@@ -839,12 +839,6 @@ export default function AgentTab({
 
                     {msg.actionType === 'confirm_generate' && (
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs text-[#696158]">
-                          <span className="font-semibold">本次生成消耗积分:</span>
-                          <span className="font-bold text-[#9C7A63] flex items-center gap-1">
-                            <Coins size={12} /> 10 积分
-                          </span>
-                        </div>
                         <p className="text-[10px] text-neutral-400 leading-relaxed">
                           点击下方按钮后，我们将启动高分辨率美甲渲染流程（画面比例：{aspectRatio}，画质清晰度：{resolution}）。生成完毕后会自动渲染专属 3D 试戴旋转展示视频。
                         </p>
